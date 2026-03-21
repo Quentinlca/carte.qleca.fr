@@ -18,7 +18,9 @@ body { margin:0; font-family:Arial; overflow:hidden; }
 .hotspot:hover { width:18px; height:18px; }
 .modal { position:fixed; inset:0; background:rgba(0,0,0,0.8); display:none; justify-content:center; align-items:center; }
 .modal-content { background:#fff; padding:20px; max-width:600px; width:90%; border-radius:10px; }
-.gallery img { max-width:100px; margin:5px; cursor:pointer; }
+#viewGallery img { width:72px; height:72px; object-fit:cover; margin:5px; cursor:zoom-in; border-radius:6px; }
+#imageModal { z-index:2000; }
+#fullImage { max-width:92vw; max-height:92vh; object-fit:contain; }
 </style>
 </head>
 <body>
@@ -56,6 +58,10 @@ body { margin:0; font-family:Arial; overflow:hidden; }
     <button onclick="deleteHotspot()">Supprimer</button>
     <button onclick="closeView()">Fermer</button>
   </div>
+</div>
+
+<div id="imageModal" class="modal" onclick="closeFullImage()">
+  <img id="fullImage" alt="Aperçu plein écran">
 </div>
 
 <script>
@@ -159,9 +165,17 @@ async function resolveImageUrl(src){
 
 async function openView(h){ currentView=h; viewTitle.innerText=h.title; viewDesc.innerText=h.desc; viewGallery.innerHTML='';
  const resolvedSources=await Promise.all((h.images||[]).map(resolveImageUrl));
- resolvedSources.forEach(src=>{ const img=document.createElement('img'); img.src=src; img.style.maxWidth='60px'; viewGallery.appendChild(img); });
+ resolvedSources.forEach(src=>{ const img=document.createElement('img'); img.src=src; img.onclick=()=>showFullImage(src); viewGallery.appendChild(img); });
  viewModal.style.display='flex'; }
 function closeView(){ viewModal.style.display='none'; }
+function showFullImage(src){ fullImage.src=src; imageModal.style.display='flex'; }
+function closeFullImage(){ imageModal.style.display='none'; fullImage.src=''; }
+window.addEventListener('keydown',e=>{
+ if(e.key!=='Escape') return;
+ if(imageModal.style.display==='flex'){ closeFullImage(); return; }
+ if(formModal.style.display==='flex'){ closeForm(); return; }
+ if(viewModal.style.display==='flex'){ closeView(); }
+});
 function editHotspot(){ if(role!=='admin') return; closeView(); openForm(currentView); }
 function deleteHotspot(){ if(role!=='admin') return; hotspots=hotspots.filter(h=>h.id!==currentView.id); closeView(); refresh(); }
 

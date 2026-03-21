@@ -12,4 +12,6 @@ body { margin:0; font-family:Arial; overflow:hidden; }
 .hotspot:hover { width:18px; height:18px; }
 .modal { position:fixed; inset:0; background:rgba(0,0,0,0.8); display:none; justify-content:center; align-items:center; }
 .modal-content { background:#fff; padding:20px; max-width:600px; width:90%; border-radius:10px; }
-.gallery img { max-width:100px; margin:5px; cursor:pointer; }
+#viewGallery img { width:72px; height:72px; object-fit:cover; margin:5px; cursor:zoom-in; border-radius:6px; }
+#imageModal { z-index:2000; }
+#fullImage { max-width:92vw; max-height:92vh; object-fit:contain; }

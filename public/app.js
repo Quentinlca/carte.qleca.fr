@@ -16,6 +16,8 @@ const imagesInput=document.getElementById('imagesInput');
 const viewTitle=document.getElementById('viewTitle');
 const viewDesc=document.getElementById('viewDesc');
 const viewGallery=document.getElementById('viewGallery');
+const imageModal=document.getElementById('imageModal');
+const fullImage=document.getElementById('fullImage');
 const imageUpload=document.getElementById('imageUpload');
 const loadProject=document.getElementById('loadProject');
 
@@ -144,12 +146,21 @@ async function openView(h){
  resolvedSources.forEach(src=>{
   const img=document.createElement('img');
   img.src=src;
+    img.onclick=()=>showFullImage(src);
   viewGallery.appendChild(img);
  });
  viewModal.style.display='flex';
 }
 
 function closeView(){ viewModal.style.display='none'; }
+function showFullImage(src){ fullImage.src=src; imageModal.style.display='flex'; }
+function closeFullImage(){ imageModal.style.display='none'; fullImage.src=''; }
+window.addEventListener('keydown',e=>{
+ if(e.key!=='Escape') return;
+ if(imageModal.style.display==='flex'){ closeFullImage(); return; }
+ if(formModal.style.display==='flex'){ closeForm(); return; }
+ if(viewModal.style.display==='flex'){ closeView(); }
+});
 function editHotspot(){ if(role!=='admin') return; closeView(); openForm(currentView); }
 function deleteHotspot(){ if(role!=='admin') return; hotspots=hotspots.filter(h=>h.id!==currentView.id); closeView(); refresh(); }
 
