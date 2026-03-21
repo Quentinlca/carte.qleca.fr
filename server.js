@@ -9,7 +9,7 @@ const port = process.env.PORT || 3000;
 const rootDir = __dirname;
 const publicDir = path.join(rootDir, 'public');
 const uploadsDir = path.join(rootDir, 'uploads');
-const dataDir = path.join(rootDir, 'data');
+const dataDir = path.join(rootDir, 'saves');
 const projectFile = path.join(dataDir, 'project.json');
 
 fs.mkdirSync(uploadsDir, { recursive: true });
@@ -25,7 +25,7 @@ app.post('/upload', upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).send('No file uploaded');
   }
-  return res.send(`/uploads/${req.file.filename}`);
+  return res.send(path.join(uploadsDir, req.file.filename));
 });
 
 app.post('/save', (req, res) => {
