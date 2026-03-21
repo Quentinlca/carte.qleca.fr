@@ -91,7 +91,7 @@ function saveHotspot(){
  Promise.all([...files].map(f=>{
   const formData=new FormData();
   formData.append('file',f);
-  return fetch('/uploads',{method:'POST',body:formData}).then(r=>r.text());
+  return fetch('/upload',{method:'POST',body:formData}).then(r=>r.text());
  })).then(urls=>{
   if(editingId){
    const h=hotspots.find(x=>x.id===editingId);
@@ -157,7 +157,7 @@ loadProject.onchange=e=>{
 };
 
 function saveProject(){
- fetch('/saves',{
+ fetch('/save',{
   method:'POST',
   headers:{'Content-Type':'application/json'},
   body:JSON.stringify({image:plan.src,hotspots})
