@@ -28,6 +28,10 @@ body { margin:0; font-family:Arial; overflow:hidden; }
   font-size:20px;
 }
 .hotspot-emoji:hover { transform:translate(-50%,-50%) scale(1.18); }
+#emojiSelectorRow { display:flex; align-items:center; gap:10px; margin:8px 0; }
+#emojiPickerBtn { padding:6px 10px; cursor:pointer; }
+#emojiPreview { font-size:24px; line-height:1; }
+#emojiPicker { width:min(100%, 360px); max-height:320px; }
 .modal { position:fixed; inset:0; background:rgba(0,0,0,0.8); display:none; justify-content:center; align-items:center; }
 .modal-content { background:#fff; padding:20px; max-width:600px; width:90%; border-radius:10px; }
 #viewGallery img { width:72px; height:72px; object-fit:cover; margin:5px; cursor:zoom-in; border-radius:6px; }

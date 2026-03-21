@@ -46,16 +46,12 @@
               </div>
               <div id="emojiInputWrapper" style="display:none;">
                 <label for="emoji">Icone:</label>
-                <select id="emoji">
-                  <option value="📍">📍</option>
-                  <option value="📌">📌</option>
-                  <option value="⭐">⭐</option>
-                  <option value="⚠️">⚠️</option>
-                  <option value="❗">❗</option>
-                  <option value="🚪">🚪</option>
-                  <option value="🛠️">🛠️</option>
-                  <option value="🔥">🔥</option>
-                </select>
+                <input type="hidden" id="emoji" value="📍">
+                <div id="emojiSelectorRow">
+                  <button type="button" id="emojiPickerBtn" onclick="toggleEmojiPicker()">Choisir un emoji</button>
+                  <span id="emojiPreview" aria-label="Emoji sélectionné">📍</span>
+                </div>
+                <emoji-picker id="emojiPicker" style="display:none;"></emoji-picker>
             </div>
             <div>
                 <textarea id="desc" placeholder="Description"></textarea>
@@ -157,6 +153,7 @@
   </div>
 </div>
 
+<script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

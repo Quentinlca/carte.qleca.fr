@@ -10,6 +10,8 @@ const title=document.getElementById('title');
 const pointType=document.getElementById('pointType');
 const color=document.getElementById('color');
 const emoji=document.getElementById('emoji');
+const emojiPicker=document.getElementById('emojiPicker');
+const emojiPreview=document.getElementById('emojiPreview');
 const colorInputWrapper=document.getElementById('colorInputWrapper');
 const emojiInputWrapper=document.getElementById('emojiInputWrapper');
 const desc=document.getElementById('desc');
@@ -141,11 +143,43 @@ function togglePointTypeInput(){
  if(pointType.value==='color'){
   colorInputWrapper.style.display='block';
   emojiInputWrapper.style.display='none';
+  closeEmojiPicker();
  }else{
   colorInputWrapper.style.display='none';
   emojiInputWrapper.style.display='block';
  }
 }
+
+function setSelectedEmoji(value){
+ const selected=value||'📍';
+ emoji.value=selected;
+ if(emojiPreview) emojiPreview.textContent=selected;
+}
+
+function toggleEmojiPicker(){
+ if(!emojiPicker) return;
+ const isOpen=emojiPicker.style.display!=='none';
+ emojiPicker.style.display=isOpen?'none':'block';
+}
+
+function closeEmojiPicker(){
+ if(!emojiPicker) return;
+ emojiPicker.style.display='none';
+}
+
+if(emojiPicker){
+ emojiPicker.addEventListener('emoji-click',event=>{
+  setSelectedEmoji(event.detail?.unicode||'📍');
+  closeEmojiPicker();
+ });
+}
+
+document.addEventListener('click',event=>{
+ if(!emojiPicker || pointType.value!=='emoji') return;
+ const inPicker=emojiPicker.contains(event.target);
+ const isButton=event.target.id==='emojiPickerBtn';
+ if(!inPicker && !isButton) closeEmojiPicker();
+});
 
 function openForm(h=null){
  formModal.style.display='flex';
@@ -156,7 +190,7 @@ function openForm(h=null){
   pointType.value=pointKind;
   togglePointTypeInput();
   if(pointKind==='emoji'){
-   emoji.value=h.value||'📍';
+    setSelectedEmoji(h.value||'📍');
   }else{
    color.value=h.value||h.color||'#FF0000';
   }
@@ -167,7 +201,7 @@ function openForm(h=null){
   pointType.value='color';
   togglePointTypeInput();
   color.value='#FF0000';
-  emoji.value='📍';
+  setSelectedEmoji('📍');
   desc.value='';
   imagesInput.value='';
  }
