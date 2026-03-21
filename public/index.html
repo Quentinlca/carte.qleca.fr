@@ -9,7 +9,7 @@
 
 <div id="project-bar">
   <div id="projectTitleWrap">
-    <span id="projectNameText">project</span>
+    <span id="projectNameText"></span>
     <button id="projectSettingsBtn" onclick="openProjectSettings()" title="Project settings">⚙️</button>
   </div>
   <span id="saveStatus"></span>
@@ -111,7 +111,10 @@
     <h3>Nouveau projet</h3>
         <div style="display: flex; flex-direction: column; gap: 10px;">
             <input id="newProjectName" type="text" placeholder="Nom du projet">
+            <div>
+                <label for="newProjectImage">Background Image</label>
             <input id="newProjectImage" type="file" accept="image/*">
+            </div>
             <p id="newProjectError"></p>
             <div style="display: flex; gap: 10px;">
                 <button onclick="confirmCreateProject()">Créer</button>
