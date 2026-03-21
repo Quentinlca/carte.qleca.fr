@@ -18,13 +18,18 @@ const viewDesc=document.getElementById('viewDesc');
 const viewGallery=document.getElementById('viewGallery');
 const imageModal=document.getElementById('imageModal');
 const fullImage=document.getElementById('fullImage');
+const projectNameInput=document.getElementById('projectName');
+const saveStatus=document.getElementById('saveStatus');
+const projectListModal=document.getElementById('projectListModal');
+const projectList=document.getElementById('projectList');
 const imageUpload=document.getElementById('imageUpload');
-const loadProject=document.getElementById('loadProject');
 
 plan.draggable=false;
 plan.addEventListener('dragstart',e=>e.preventDefault());
 
 let hotspots=[], tempCoords=null, editingId=null, currentView=null;
+let lastSavedProjectName='project';
+let hasCustomProjectName=false;
 
 let scale=1, originX=0, originY=0;
 let isDragging=false, moved=false, startX,startY;
@@ -155,36 +160,83 @@ async function openView(h){
 function closeView(){ viewModal.style.display='none'; }
 function showFullImage(src){ fullImage.src=src; imageModal.style.display='flex'; }
 function closeFullImage(){ imageModal.style.display='none'; fullImage.src=''; }
+function closeProjectList(){ projectListModal.style.display='none'; }
+function setSaveStatus(message,isError=false){ saveStatus.textContent=message; saveStatus.style.color=isError?'#ff9b9b':'#9dff9d'; }
+function sanitizeProjectName(name){ const cleaned=(name||'').trim().replace(/\.json$/i,'').replace(/[<>:"/\\|?*\x00-\x1F]/g,'_').slice(0,120).trim(); return cleaned||'project'; }
+
+projectNameInput.addEventListener('input',()=>{ hasCustomProjectName=true; });
+
+async function loadProjectByName(name){
+ const response=await fetch(`/project/${encodeURIComponent(name)}`);
+ if(!response.ok) throw new Error('project not found');
+ const data=await response.json();
+ plan.src=data.image||'';
+ hotspots=Array.isArray(data.hotspots)?data.hotspots:[];
+ projectNameInput.value=data.projectName||name;
+ lastSavedProjectName=sanitizeProjectName(data.projectName||name);
+ hasCustomProjectName=true;
+ refresh();
+ closeProjectList();
+ setSaveStatus(`Loaded: ${lastSavedProjectName}`);
+}
+
+async function openProjectList(){
+ projectList.innerHTML='Chargement...';
+ projectListModal.style.display='flex';
+ try{
+  const response=await fetch('/projects');
+  const data=await response.json();
+  const projects=Array.isArray(data.projects)?data.projects:[];
+  if(!projects.length){ projectList.textContent='Aucun projet sauvegardé.'; return; }
+  projectList.innerHTML='';
+  projects.forEach(name=>{
+   const btn=document.createElement('button');
+   btn.textContent=name;
+   btn.onclick=()=>loadProjectByName(name).catch(()=>setSaveStatus('Erreur chargement projet',true));
+   projectList.appendChild(btn);
+  });
+ }catch(_err){
+  projectList.textContent='Erreur lors du chargement des projets.';
+ }
+}
+
 window.addEventListener('keydown',e=>{
  if(e.key!=='Escape') return;
  if(imageModal.style.display==='flex'){ closeFullImage(); return; }
  if(formModal.style.display==='flex'){ closeForm(); return; }
- if(viewModal.style.display==='flex'){ closeView(); }
+ if(viewModal.style.display==='flex'){ closeView(); return; }
+ if(projectListModal.style.display==='flex'){ closeProjectList(); }
 });
 function editHotspot(){ if(role!=='admin') return; closeView(); openForm(currentView); }
 function deleteHotspot(){ if(role!=='admin') return; hotspots=hotspots.filter(h=>h.id!==currentView.id); closeView(); refresh(); }
 
 imageUpload.onchange=e=>{
+ const selectedFile=e.target.files[0];
+ if(selectedFile && !hasCustomProjectName){
+  const baseName=selectedFile.name.replace(/\.[^.]+$/,'');
+  const safeName=sanitizeProjectName(baseName);
+  projectNameInput.value=safeName;
+  lastSavedProjectName=safeName;
+ }
  const reader=new FileReader();
  reader.onload=()=>plan.src=reader.result;
  reader.readAsDataURL(e.target.files[0]);
 };
 
-loadProject.onchange=e=>{
- const reader=new FileReader();
- reader.onload=()=>{
-  const data=JSON.parse(reader.result);
-  plan.src=data.image;
-  hotspots=data.hotspots;
-  refresh();
- };
- reader.readAsText(e.target.files[0]);
-};
-
-function saveProject(){
- fetch('/save',{
+async function saveProject(){
+ const projectName=sanitizeProjectName(projectNameInput.value||lastSavedProjectName);
+ projectNameInput.value=projectName;
+ try{
+  const response=await fetch('/save',{
   method:'POST',
   headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({image:plan.src,hotspots})
- });
+  body:JSON.stringify({projectName,previousProjectName:lastSavedProjectName,image:plan.src,hotspots})
+  });
+  if(!response.ok) throw new Error('save failed');
+  const result=await response.json();
+  lastSavedProjectName=sanitizeProjectName(result.projectName||projectName);
+  setSaveStatus(`Saved: ${lastSavedProjectName}`);
+ }catch(_err){
+  setSaveStatus('Erreur: projet non sauvegardé',true);
+ }
 }

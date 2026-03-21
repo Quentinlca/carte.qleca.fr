@@ -7,6 +7,11 @@
 </head>
 <body>
 
+<div id="project-bar">
+  <label>Projet: <input id="projectName" type="text" placeholder="Nom du projet"></label>
+  <span id="saveStatus"></span>
+</div>
+
 <div id="toolbar">
   <button onclick="toggleMode()">Mode: <span id="modeLabel">viewer</span></button>
   <button onclick="login('admin')">Login Admin</button>
@@ -14,7 +19,7 @@
   <button onclick="logout()">Logout</button>
   <label>📷 Plan <input type="file" id="imageUpload"></label>
   <button onclick="saveProject()">💾 Save</button>
-  <label>📂 JSON <input type="file" id="loadProject"></label>
+  <button onclick="openProjectList()">📂 Load Project</button>
 </div>
 
 <div id="plan-container"><div id="plan-wrapper"><img id="plan"></div></div>
@@ -44,6 +49,14 @@
 
 <div id="imageModal" class="modal" onclick="closeFullImage()">
   <img id="fullImage" alt="Aperçu plein écran">
+</div>
+
+<div id="projectListModal" class="modal">
+  <div class="modal-content">
+    <h3>Projets sauvegardés</h3>
+    <div id="projectList"></div>
+    <button onclick="closeProjectList()">Fermer</button>
+  </div>
 </div>
 
 <script src="app.js"></script>

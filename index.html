@@ -5,9 +5,12 @@
 <title>Interactive Plan Builder PRO+</title>
 <style>
 body { margin:0; font-family:Arial; overflow:hidden; }
+#project-bar { position:relative; z-index:1001; background:#111; color:#fff; padding:8px 10px; display:flex; align-items:center; gap:12px; }
+#projectName { min-width:220px; padding:4px 6px; }
+#saveStatus { font-size:13px; opacity:0.9; }
 #toolbar { position:relative; z-index:1000; background:#222; color:#fff; padding:10px; }
 #toolbar button,label { margin-right:10px; }
-#plan-container { width:100%; height:calc(100vh - 50px); background:#eee; overflow:hidden; cursor:default; position:relative; }
+#plan-container { width:100%; height:calc(100vh - 92px); background:#eee; overflow:hidden; cursor:default; position:relative; }
 #plan-wrapper { position:absolute; transform-origin:top left; }
 #plan { display:block; max-width:none; user-select:none; -webkit-user-drag:none; }
 .hotspot {
@@ -19,11 +22,17 @@ body { margin:0; font-family:Arial; overflow:hidden; }
 .modal { position:fixed; inset:0; background:rgba(0,0,0,0.8); display:none; justify-content:center; align-items:center; }
 .modal-content { background:#fff; padding:20px; max-width:600px; width:90%; border-radius:10px; }
 #viewGallery img { width:72px; height:72px; object-fit:cover; margin:5px; cursor:zoom-in; border-radius:6px; }
+#projectList button { width:100%; margin:5px 0; text-align:left; padding:8px; }
 #imageModal { z-index:2000; }
 #fullImage { max-width:92vw; max-height:92vh; object-fit:contain; }
 </style>
 </head>
 <body>
+
+<div id="project-bar">
+  <label>Projet: <input id="projectName" type="text" placeholder="Nom du projet"></label>
+  <span id="saveStatus"></span>
+</div>
 
 <div id="toolbar">
   <button onclick="toggleMode()">Mode: <span id="modeLabel">viewer</span></button>
@@ -32,7 +41,7 @@ body { margin:0; font-family:Arial; overflow:hidden; }
   <button onclick="logout()">Logout</button>
   <label>📷 Plan <input type="file" id="imageUpload"></label>
   <button onclick="saveProject()">💾 Save</button>
-  <label>📂 JSON <input type="file" id="loadProject"></label>
+  <button onclick="openProjectList()">📂 Load Project</button>
 </div>
 
 <div id="plan-container"><div id="plan-wrapper"><img id="plan"></div></div>
@@ -64,6 +73,14 @@ body { margin:0; font-family:Arial; overflow:hidden; }
   <img id="fullImage" alt="Aperçu plein écran">
 </div>
 
+<div id="projectListModal" class="modal">
+  <div class="modal-content">
+    <h3>Projets sauvegardés</h3>
+    <div id="projectList"></div>
+    <button onclick="closeProjectList()">Fermer</button>
+  </div>
+</div>
+
 <script>
 let role='viewer';
 function login(r){ role=r; alert('Connecté en '+r); }
@@ -73,10 +90,16 @@ function toggleMode(){ if(role!=='admin') return alert('admin only'); }
 const plan=document.getElementById('plan');
 const wrapper=document.getElementById('plan-wrapper');
 const container=document.getElementById('plan-container');
+const projectNameInput=document.getElementById('projectName');
+const saveStatus=document.getElementById('saveStatus');
+const projectListModal=document.getElementById('projectListModal');
+const projectList=document.getElementById('projectList');
 plan.draggable=false;
 plan.addEventListener('dragstart',e=>e.preventDefault());
 
 let hotspots=[], tempCoords=null, editingId=null, currentView=null;
+let lastSavedProjectName='project';
+let hasCustomProjectName=false;
 
 let scale=1, originX=0, originY=0;
 let isDragging=false, moved=false, startX,startY;
@@ -170,19 +193,82 @@ async function openView(h){ currentView=h; viewTitle.innerText=h.title; viewDesc
 function closeView(){ viewModal.style.display='none'; }
 function showFullImage(src){ fullImage.src=src; imageModal.style.display='flex'; }
 function closeFullImage(){ imageModal.style.display='none'; fullImage.src=''; }
+function closeProjectList(){ projectListModal.style.display='none'; }
+function setSaveStatus(message,isError=false){ saveStatus.textContent=message; saveStatus.style.color=isError?'#ff9b9b':'#9dff9d'; }
+function sanitizeProjectName(name){ const cleaned=(name||'').trim().replace(/\.json$/i,'').replace(/[<>:"/\\|?*\x00-\x1F]/g,'_').slice(0,120).trim(); return cleaned||'project'; }
+
+projectNameInput.addEventListener('input',()=>{ hasCustomProjectName=true; });
+
+async function loadProjectByName(name){
+ const response=await fetch(`/project/${encodeURIComponent(name)}`);
+ if(!response.ok) throw new Error('project not found');
+ const data=await response.json();
+ plan.src=data.image||'';
+ hotspots=Array.isArray(data.hotspots)?data.hotspots:[];
+ projectNameInput.value=data.projectName||name;
+ lastSavedProjectName=sanitizeProjectName(data.projectName||name);
+ hasCustomProjectName=true;
+ refresh();
+ closeProjectList();
+ setSaveStatus(`Loaded: ${lastSavedProjectName}`);
+}
+
+async function openProjectList(){
+ projectList.innerHTML='Chargement...';
+ projectListModal.style.display='flex';
+ try{
+  const response=await fetch('/projects');
+  const data=await response.json();
+  const projects=Array.isArray(data.projects)?data.projects:[];
+  if(!projects.length){ projectList.textContent='Aucun projet sauvegardé.'; return; }
+  projectList.innerHTML='';
+  projects.forEach(name=>{
+   const btn=document.createElement('button');
+   btn.textContent=name;
+   btn.onclick=()=>loadProjectByName(name).catch(()=>setSaveStatus('Erreur chargement projet',true));
+   projectList.appendChild(btn);
+  });
+ }catch(_err){
+  projectList.textContent='Erreur lors du chargement des projets.';
+ }
+}
+
 window.addEventListener('keydown',e=>{
  if(e.key!=='Escape') return;
  if(imageModal.style.display==='flex'){ closeFullImage(); return; }
  if(formModal.style.display==='flex'){ closeForm(); return; }
- if(viewModal.style.display==='flex'){ closeView(); }
+ if(viewModal.style.display==='flex'){ closeView(); return; }
+ if(projectListModal.style.display==='flex'){ closeProjectList(); }
 });
 function editHotspot(){ if(role!=='admin') return; closeView(); openForm(currentView); }
 function deleteHotspot(){ if(role!=='admin') return; hotspots=hotspots.filter(h=>h.id!==currentView.id); closeView(); refresh(); }
 
-imageUpload.onchange=e=>{ const r=new FileReader(); r.onload=()=>plan.src=r.result; r.readAsDataURL(e.target.files[0]); };
-loadProject.onchange=e=>{ const r=new FileReader(); r.onload=()=>{ const d=JSON.parse(r.result); plan.src=d.image; hotspots=d.hotspots; refresh(); }; r.readAsText(e.target.files[0]); };
+imageUpload.onchange=e=>{
+ const selectedFile=e.target.files[0];
+ if(selectedFile && !hasCustomProjectName){
+  const baseName=selectedFile.name.replace(/\.[^.]+$/,'');
+  const safeName=sanitizeProjectName(baseName);
+  projectNameInput.value=safeName;
+  lastSavedProjectName=safeName;
+ }
+ const r=new FileReader();
+ r.onload=()=>plan.src=r.result;
+ r.readAsDataURL(e.target.files[0]);
+};
 
-function saveProject(){ fetch('/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:plan.src,hotspots})}); }
+async function saveProject(){
+ const projectName=sanitizeProjectName(projectNameInput.value||lastSavedProjectName);
+ projectNameInput.value=projectName;
+ try{
+  const response=await fetch('/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({projectName,previousProjectName:lastSavedProjectName,image:plan.src,hotspots})});
+  if(!response.ok) throw new Error('save failed');
+  const result=await response.json();
+  lastSavedProjectName=sanitizeProjectName(result.projectName||projectName);
+  setSaveStatus(`Saved: ${lastSavedProjectName}`);
+ }catch(_err){
+  setSaveStatus('Erreur: projet non sauvegardé',true);
+ }
+}
 
 </script>
 </body>

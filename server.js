@@ -11,7 +11,6 @@ const rootDir = __dirname;
 const publicDir = path.join(rootDir, 'public');
 const uploadsDir = path.join(rootDir, 'uploads');
 const dataDir = path.join(rootDir, 'saves');
-const projectFile = path.join(dataDir, 'project.json');
 const imageSigningSecret = process.env.IMAGE_SIGNING_SECRET || 'change-me-in-production';
 
 fs.mkdirSync(uploadsDir, { recursive: true });
@@ -61,6 +60,21 @@ function signaturesMatch(expected, received) {
   return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(received));
 }
 
+function sanitizeProjectName(name) {
+  const raw = typeof name === 'string' ? name.trim() : '';
+  const withoutExt = raw.replace(/\.json$/i, '');
+  const safe = withoutExt.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_').replace(/\.+/g, '.').slice(0, 120).trim();
+  return safe || 'project';
+}
+
+function projectFilePathFromName(name) {
+  return path.join(dataDir, `${sanitizeProjectName(name)}.json`);
+}
+
+function projectNameFromFile(fileName) {
+  return fileName.replace(/\.json$/i, '');
+}
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(publicDir));
 
@@ -106,11 +120,37 @@ app.post('/upload', upload.single('file'), (req, res) => {
 });
 
 app.post('/save', (req, res) => {
-  fs.writeFileSync(projectFile, JSON.stringify(req.body, null, 2), 'utf8');
-  return res.send('ok');
+  const projectName = sanitizeProjectName(req.body?.projectName);
+  const previousProjectName = sanitizeProjectName(req.body?.previousProjectName || projectName);
+  const filePath = projectFilePathFromName(projectName);
+  const previousFilePath = projectFilePathFromName(previousProjectName);
+
+  const payload = {
+    projectName,
+    image: req.body?.image || '',
+    hotspots: Array.isArray(req.body?.hotspots) ? req.body.hotspots : []
+  };
+
+  fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf8');
+
+  if (previousFilePath !== filePath && fs.existsSync(previousFilePath)) {
+    fs.unlinkSync(previousFilePath);
+  }
+
+  return res.json({ ok: true, projectName });
 });
 
-app.get('/project', (_req, res) => {
+app.get('/projects', (_req, res) => {
+  const projects = fs.readdirSync(dataDir)
+    .filter(fileName => fileName.toLowerCase().endsWith('.json'))
+    .map(projectNameFromFile)
+    .sort((a, b) => a.localeCompare(b));
+  return res.json({ projects });
+});
+
+app.get('/project/:name', (req, res) => {
+  const projectName = sanitizeProjectName(req.params.name);
+  const projectFile = projectFilePathFromName(projectName);
   if (!fs.existsSync(projectFile)) {
     return res.status(404).json({ error: 'project not found' });
   }
