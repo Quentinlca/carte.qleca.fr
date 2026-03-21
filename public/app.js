@@ -152,12 +152,13 @@ function openForm(h=null){
  if(h){
   editingId=h.id;
   title.value=h.title;
-  pointType.value=h.type||'color';
+  const pointKind=h.type||'color';
+  pointType.value=pointKind;
   togglePointTypeInput();
-  if(h.type==='emoji'){
+  if(pointKind==='emoji'){
    emoji.value=h.value||'📍';
   }else{
-   color.value=h.value||'#FF0000';
+   color.value=h.value||h.color||'#FF0000';
   }
   desc.value=h.desc;
  }else{
@@ -177,7 +178,7 @@ function closeForm(){ formModal.style.display='none'; }
 function saveHotspot(){
  const files=imagesInput.files;
  const type=pointType.value;
- const value=type==='emoji'?emoji.value:color.value;
+ const value=type==='emoji'?(emoji.value||'📍'):color.value;
  Promise.all([...files].map(f=>{
   const formData=new FormData();
   formData.append('file',f);
@@ -205,19 +206,14 @@ function createHotspotElement(h){
  el.style.left=(h.x*100)+'%';
  el.style.top=(h.y*100)+'%';
  el.onclick=e=>{ e.stopPropagation(); openView(h); };
- 
- if(h.type==='emoji'){
+
+ const pointKind=h.type||'color';
+ if(pointKind==='emoji'){
+  el.classList.add('hotspot-emoji');
   el.textContent=h.value||'📍';
-  el.style.fontSize='20px';
-  el.style.display='flex';
-  el.style.alignItems='center';
-  el.style.justifyContent='center';
-  el.style.width='28px';
-  el.style.height='28px';
  }else{
-  el.style.background=h.value||'#FF0000';
-  el.style.width='10px';
-  el.style.height='10px';
+  el.classList.add('hotspot-color');
+  el.style.background=h.value||h.color||'#FF0000';
  }
  wrapper.appendChild(el);
 }
