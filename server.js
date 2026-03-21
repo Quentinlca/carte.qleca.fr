@@ -75,6 +75,10 @@ function projectNameFromFile(fileName) {
   return fileName.replace(/\.json$/i, '');
 }
 
+function readProjectFile(filePath) {
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(publicDir));
 
@@ -121,23 +125,26 @@ app.post('/upload', upload.single('file'), (req, res) => {
 
 app.post('/save', (req, res) => {
   const projectName = sanitizeProjectName(req.body?.projectName);
-  const previousProjectName = sanitizeProjectName(req.body?.previousProjectName || projectName);
   const filePath = projectFilePathFromName(projectName);
-  const previousFilePath = projectFilePathFromName(previousProjectName);
+  const now = new Date().toISOString();
+  let existing = null;
+  if (fs.existsSync(filePath)) {
+    existing = readProjectFile(filePath);
+  }
+
+  const createdAt = existing?.createdAt || req.body?.createdAt || now;
 
   const payload = {
     projectName,
+    createdAt,
+    updatedAt: now,
     image: req.body?.image || '',
     hotspots: Array.isArray(req.body?.hotspots) ? req.body.hotspots : []
   };
 
   fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf8');
 
-  if (previousFilePath !== filePath && fs.existsSync(previousFilePath)) {
-    fs.unlinkSync(previousFilePath);
-  }
-
-  return res.json({ ok: true, projectName });
+  return res.json({ ok: true, projectName, createdAt: payload.createdAt, updatedAt: payload.updatedAt });
 });
 
 app.get('/projects', (_req, res) => {
@@ -155,6 +162,71 @@ app.get('/project/:name', (req, res) => {
     return res.status(404).json({ error: 'project not found' });
   }
   return res.sendFile(projectFile);
+});
+
+app.post('/project/rename', (req, res) => {
+  const fromName = sanitizeProjectName(req.body?.fromName);
+  const toName = sanitizeProjectName(req.body?.toName);
+  const fromFile = projectFilePathFromName(fromName);
+  const toFile = projectFilePathFromName(toName);
+
+  if (!fs.existsSync(fromFile)) {
+    return res.status(404).json({ error: 'source project not found' });
+  }
+
+  if (fromName !== toName && fs.existsSync(toFile)) {
+    return res.status(409).json({ error: 'project name already exists' });
+  }
+
+  const payload = readProjectFile(fromFile);
+  payload.projectName = toName;
+  payload.updatedAt = new Date().toISOString();
+  if (!payload.createdAt) {
+    payload.createdAt = payload.updatedAt;
+  }
+
+  fs.writeFileSync(toFile, JSON.stringify(payload, null, 2), 'utf8');
+  if (fromFile !== toFile && fs.existsSync(fromFile)) {
+    fs.unlinkSync(fromFile);
+  }
+
+  return res.json({ ok: true, projectName: toName, createdAt: payload.createdAt, updatedAt: payload.updatedAt });
+});
+
+app.post('/project/duplicate', (req, res) => {
+  const sourceName = sanitizeProjectName(req.body?.name);
+  const sourceFile = projectFilePathFromName(sourceName);
+  if (!fs.existsSync(sourceFile)) {
+    return res.status(404).json({ error: 'source project not found' });
+  }
+
+  const duplicatedName = sanitizeProjectName(`${sourceName}_copy`);
+  const duplicateFile = projectFilePathFromName(duplicatedName);
+  if (fs.existsSync(duplicateFile)) {
+    return res.status(409).json({ error: 'duplicate project already exists' });
+  }
+
+  const sourcePayload = readProjectFile(sourceFile);
+  const now = new Date().toISOString();
+  const duplicatePayload = {
+    ...sourcePayload,
+    projectName: duplicatedName,
+    createdAt: now,
+    updatedAt: now
+  };
+  fs.writeFileSync(duplicateFile, JSON.stringify(duplicatePayload, null, 2), 'utf8');
+
+  return res.json({ ok: true, projectName: duplicatedName });
+});
+
+app.delete('/project/:name', (req, res) => {
+  const projectName = sanitizeProjectName(req.params.name);
+  const projectFile = projectFilePathFromName(projectName);
+  if (!fs.existsSync(projectFile)) {
+    return res.status(404).json({ error: 'project not found' });
+  }
+  fs.unlinkSync(projectFile);
+  return res.json({ ok: true });
 });
 
 app.listen(port, () => {

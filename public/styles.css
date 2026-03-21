@@ -1,6 +1,8 @@
 body { margin:0; font-family:Arial; overflow:hidden; }
 #project-bar { position:relative; z-index:1001; background:#111; color:#fff; padding:8px 10px; display:flex; align-items:center; gap:12px; }
-#projectName { min-width:220px; padding:4px 6px; }
+#projectTitleWrap { display:flex; align-items:center; gap:8px; }
+#projectNameText { font-weight:600; }
+#projectSettingsBtn { background:transparent; border:1px solid #777; color:#fff; border-radius:6px; cursor:pointer; padding:2px 6px; }
 #saveStatus { font-size:13px; opacity:0.9; }
 #toolbar { position:relative; z-index:1000; background:#222; color:#fff; padding:10px; }
 #toolbar button,label { margin-right:10px; }
@@ -17,5 +19,8 @@ body { margin:0; font-family:Arial; overflow:hidden; }
 .modal-content { background:#fff; padding:20px; max-width:600px; width:90%; border-radius:10px; }
 #viewGallery img { width:72px; height:72px; object-fit:cover; margin:5px; cursor:zoom-in; border-radius:6px; }
 #projectList button { width:100%; margin:5px 0; text-align:left; padding:8px; }
+#projectActions { display:flex; gap:10px; margin:14px 0; }
+#projectActions button { padding:8px 10px; }
+#renameError { color:#c00; min-height:18px; }
 #imageModal { z-index:2000; }
 #fullImage { max-width:92vw; max-height:92vh; object-fit:contain; }

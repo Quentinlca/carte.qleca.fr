@@ -8,7 +8,10 @@
 <body>
 
 <div id="project-bar">
-  <label>Projet: <input id="projectName" type="text" placeholder="Nom du projet"></label>
+  <div id="projectTitleWrap">
+    <span id="projectNameText">project</span>
+    <button id="projectSettingsBtn" onclick="openProjectSettings()" title="Project settings">⚙️</button>
+  </div>
   <span id="saveStatus"></span>
 </div>
 
@@ -56,6 +59,41 @@
     <h3>Projets sauvegardés</h3>
     <div id="projectList"></div>
     <button onclick="closeProjectList()">Fermer</button>
+  </div>
+</div>
+
+<div id="projectSettingsModal" class="modal">
+  <div class="modal-content">
+    <h3>Paramètres du projet</h3>
+    <p><strong>Nom:</strong> <span id="settingsProjectName"></span></p>
+    <p><strong>Créé le:</strong> <span id="settingsCreatedAt"></span></p>
+    <p><strong>Dernière modification:</strong> <span id="settingsUpdatedAt"></span></p>
+    <p><strong>Nombre de points:</strong> <span id="settingsPointCount"></span></p>
+    <div id="projectActions">
+      <button id="renameProjectBtn" onclick="openRenameProject()">✏️ Renommer</button>
+      <button id="duplicateProjectBtn" onclick="duplicateProject()">📄 Dupliquer</button>
+      <button id="deleteProjectBtn" onclick="openDeleteProjectConfirm()">🗑️ Supprimer</button>
+    </div>
+    <button onclick="closeProjectSettings()">Fermer</button>
+  </div>
+</div>
+
+<div id="renameProjectModal" class="modal">
+  <div class="modal-content">
+    <h3>Renommer le projet</h3>
+    <input id="renameProjectInput" type="text" placeholder="Nouveau nom">
+    <p id="renameError"></p>
+    <button onclick="confirmRenameProject()">Valider</button>
+    <button onclick="closeRenameProject()">Annuler</button>
+  </div>
+</div>
+
+<div id="deleteProjectModal" class="modal">
+  <div class="modal-content">
+    <h3>Supprimer le projet</h3>
+    <p>Confirmer la suppression de ce projet ?</p>
+    <button onclick="confirmDeleteProject()">Oui, supprimer</button>
+    <button onclick="closeDeleteProjectConfirm()">Annuler</button>
   </div>
 </div>
 
