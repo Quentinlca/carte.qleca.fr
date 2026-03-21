@@ -14,6 +14,49 @@ npm start
 
 Then open http://localhost:3000 in your browser.
 
+## Authentication
+
+The app now uses server-side sessions with a real login page.
+
+- Login URL: `http://localhost:3000/login`
+- Main app URL: `http://localhost:3000/` (requires login)
+
+Users are stored in `saves/users.json` with one bcrypt hash per user password.
+
+```bash
+ADMIN_PASSWORD_HASH=$2a$...
+VIEWER_PASSWORD_HASH=$2a$...
+SESSION_SECRET=replace_with_a_long_random_secret
+```
+
+You can bootstrap default `admin` / `viewer` users from env hashes, but the recommended workflow is creating users directly:
+
+```bash
+npm run create-user -- alice StrongPass123 viewer
+npm run create-user -- bob StrongPass123 admin
+```
+
+Admins can also manage users directly in the app from the `👤 Users` modal (create/list/edit/delete).
+
+Create users via API (admin session required):
+
+```http
+POST /auth/users
+Content-Type: application/json
+
+{
+  "username": "charlie",
+  "password": "StrongPass123",
+  "role": "viewer"
+}
+```
+
+Generate a bcrypt hash:
+
+```bash
+node -e "console.log(require('bcryptjs').hashSync('your_password', 12))"
+```
+
 ## Project Structure
 
 ```
@@ -25,7 +68,7 @@ CarteInteractive/
 │   ├── app.js             # Client-side logic
 │   └── styles.css         # Styling
 ├── uploads/               # Uploaded image files (generated at runtime)
-├── data/                  # Saved projects (generated at runtime)
+├── saves/                 # Saved projects + users store (generated at runtime)
 │   └── project.json       # Current project data
 └── README.md              # This file
 ```
@@ -96,14 +139,13 @@ Retrieve the saved project JSON.
 ## Usage
 
 ### As Admin
-1. Click "Login Admin"
-2. Double-click the plan to create a hotspot
-3. Fill in title, color, description, and upload images
-4. Click "OK" to save
-5. Click "💾 Save" to persist to server
+1. Login with admin credentials
+2. Click the plan to create a hotspot
+3. Fill in title, point type, description, and upload images
+4. Click "OK" to save (autosave is enabled)
 
 ### As Viewer
-1. Click "Login Viewer" (default mode)
+1. Login with viewer credentials
 2. Click any hotspot to view details and gallery
 3. Zoom/pan as needed
 

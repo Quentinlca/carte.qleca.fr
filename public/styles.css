@@ -43,5 +43,11 @@ body { margin:0; font-family:Arial; overflow:hidden; }
 #projectActions button { padding:8px 10px; }
 #renameError { color:#c00; min-height:18px; }
 #newProjectError { color:#c00; min-height:18px; }
+#usersCreateBox { display:grid; grid-template-columns: 1.2fr 1fr auto auto; gap:8px; margin-bottom:10px; }
+#usersError { color:#c00; min-height:18px; margin:4px 0 10px; }
+#usersList { max-height:300px; overflow:auto; display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
+.user-row { display:grid; grid-template-columns: 1fr auto 1fr auto auto; gap:8px; align-items:center; }
+.user-name { font-weight:600; }
+.user-row input,.user-row select,#usersCreateBox input,#usersCreateBox select { padding:6px 8px; }
 #imageModal { z-index:2000; }
 #fullImage { max-width:92vw; max-height:92vh; object-fit:contain; }

@@ -41,6 +41,13 @@ const newProjectNameInput=document.getElementById('newProjectName');
 const newProjectImageInput=document.getElementById('newProjectImage');
 const newProjectError=document.getElementById('newProjectError');
 const deleteHotspotModal=document.getElementById('deleteHotspotModal');
+const usersAdminBtn=document.getElementById('usersAdminBtn');
+const usersModal=document.getElementById('usersModal');
+const usersList=document.getElementById('usersList');
+const usersNameInput=document.getElementById('usersNameInput');
+const usersPasswordInput=document.getElementById('usersPasswordInput');
+const usersRoleInput=document.getElementById('usersRoleInput');
+const usersError=document.getElementById('usersError');
 
 const modeLabel=document.getElementById('modeLabel');
 
@@ -52,6 +59,7 @@ let currentProjectName='';
 let currentProjectCreatedAt=null;
 let currentProjectUpdatedAt=null;
 let projectNameCustomized=false;
+let currentUsername='';
 
 let scale=1, originX=0, originY=0;
 let isDragging=false, moved=false, startX,startY;
@@ -76,10 +84,33 @@ function setSaveStatus(message,isError=false){
 function updateModeUi(){
  modeLabel.textContent=role;
  projectActions.style.display=role==='admin'?'flex':'none';
+ usersAdminBtn.style.display=role==='admin'?'inline-block':'none';
 }
 
 function updateProjectHeader(){
  projectNameText.textContent=currentProjectName;
+}
+
+async function apiFetch(url,options={}){
+ const response=await fetch(url,options);
+ if(response.status===401){
+  window.location.href='/login';
+  throw new Error('unauthenticated');
+ }
+ return response;
+}
+
+async function bootstrapAuth(){
+ try{
+  const response=await apiFetch('/auth/me');
+  if(!response.ok) throw new Error('auth failed');
+  const payload=await response.json();
+  role=payload.user?.role==='admin'?'admin':'viewer';
+  currentUsername=payload.user?.username||'';
+  updateModeUi();
+ }catch(_err){
+  window.location.href='/login';
+ }
 }
 
 function applyLoadedProject(data,fallbackName){
@@ -93,9 +124,13 @@ function applyLoadedProject(data,fallbackName){
  refresh();
 }
 
-function login(r){ role=r; alert('Connecté en '+r); updateModeUi(); }
-function logout(){ role='viewer'; updateModeUi(); }
-function toggleMode(){ if(role!=='admin') return alert('admin only'); }
+async function logout(){
+ try{
+  await apiFetch('/auth/logout',{method:'POST'});
+ }catch(_err){
+ }
+ window.location.href='/login';
+}
 
 container.addEventListener('wheel',e=>{
  e.preventDefault();
@@ -216,7 +251,7 @@ function saveHotspot(){
  Promise.all([...files].map(f=>{
   const formData=new FormData();
   formData.append('file',f);
-  return fetch('/upload',{method:'POST',body:formData}).then(r=>r.text());
+  return apiFetch('/upload',{method:'POST',body:formData}).then(r=>r.text());
  })).then(urls=>{
   if(editingId){
    const h=hotspots.find(x=>x.id===editingId);
@@ -261,7 +296,7 @@ async function resolveImageUrl(src){
  if(!src || src.startsWith('data:') || /^https?:\/\//i.test(src)) return src;
  if(src.startsWith('/image/')) return src;
  try{
-  const response=await fetch(`/image-url?src=${encodeURIComponent(src)}`);
+  const response=await apiFetch(`/image-url?src=${encodeURIComponent(src)}`);
   if(!response.ok) return src;
   return await response.text();
  }catch(_err){
@@ -346,7 +381,7 @@ async function confirmCreateProject(){
  newProjectError.textContent='';
  try{
   const image=await readFileAsDataUrl(selectedFile);
-  const response=await fetch('/project/create',{
+  const response=await apiFetch('/project/create',{
    method:'POST',
    headers:{'Content-Type':'application/json'},
    body:JSON.stringify({projectName,image})
@@ -371,7 +406,7 @@ async function confirmRenameProject(){
  if(newName===currentProjectName){ closeRenameProject(); return; }
  renameError.textContent='';
  try{
-  const response=await fetch('/project/rename',{
+  const response=await apiFetch('/project/rename',{
    method:'POST',
    headers:{'Content-Type':'application/json'},
    body:JSON.stringify({fromName:currentProjectName,toName:newName})
@@ -395,7 +430,7 @@ async function confirmRenameProject(){
 async function confirmDeleteProject(){
  if(role!=='admin') return;
  try{
-  const response=await fetch(`/project/${encodeURIComponent(currentProjectName)}`,{method:'DELETE'});
+  const response=await apiFetch(`/project/${encodeURIComponent(currentProjectName)}`,{method:'DELETE'});
   if(!response.ok) throw new Error('delete failed');
   hotspots=[];
   plan.src='';
@@ -418,7 +453,7 @@ async function duplicateProject(){
  const saved=await saveProject();
  if(!saved) return;
  try{
-  const response=await fetch('/project/duplicate',{
+  const response=await apiFetch('/project/duplicate',{
    method:'POST',
    headers:{'Content-Type':'application/json'},
    body:JSON.stringify({name:currentProjectName})
@@ -435,7 +470,7 @@ async function duplicateProject(){
 }
 
 async function loadProjectByName(name){
- const response=await fetch(`/project/${encodeURIComponent(name)}`);
+ const response=await apiFetch(`/project/${encodeURIComponent(name)}`);
  if(!response.ok) throw new Error('project not found');
  const data=await response.json();
  applyLoadedProject(data,name);
@@ -450,7 +485,7 @@ async function renameProjectFromList(name){
  const newName=sanitizeProjectName(proposed);
  if(newName===sanitizeProjectName(name)) return;
  try{
-  const response=await fetch('/project/rename',{
+  const response=await apiFetch('/project/rename',{
    method:'POST',
    headers:{'Content-Type':'application/json'},
    body:JSON.stringify({fromName:name,toName:newName})
@@ -471,7 +506,7 @@ async function renameProjectFromList(name){
 async function duplicateProjectFromList(name){
  if(role!=='admin') return;
  try{
-  const response=await fetch('/project/duplicate',{
+  const response=await apiFetch('/project/duplicate',{
    method:'POST',
    headers:{'Content-Type':'application/json'},
    body:JSON.stringify({name})
@@ -490,7 +525,7 @@ async function deleteProjectFromList(name){
  if(role!=='admin') return;
  if(!confirm(`Supprimer le projet "${name}" ?`)) return;
  try{
-  const response=await fetch(`/project/${encodeURIComponent(name)}`,{method:'DELETE'});
+  const response=await apiFetch(`/project/${encodeURIComponent(name)}`,{method:'DELETE'});
   if(!response.ok) throw new Error('delete failed');
   if(sanitizeProjectName(currentProjectName)===sanitizeProjectName(name)){
    hotspots=[];
@@ -513,7 +548,7 @@ async function openProjectList(){
  projectList.innerHTML='Chargement...';
  projectListModal.style.display='flex';
  try{
-  const response=await fetch('/projects');
+  const response=await apiFetch('/projects');
   const data=await response.json();
   const projects=Array.isArray(data.projects)?data.projects:[];
   if(!projects.length){ projectList.textContent='Aucun projet sauvegardé.'; return; }
@@ -558,6 +593,131 @@ async function openProjectList(){
  }
 }
 
+  function closeUsersModal(){
+   usersModal.style.display='none';
+  }
+
+  function renderUsersList(items){
+   usersList.innerHTML='';
+   if(!items.length){
+    usersList.textContent='Aucun utilisateur';
+    return;
+   }
+
+   items.forEach(user=>{
+    const row=document.createElement('div');
+    row.className='user-row';
+
+    const name=document.createElement('span');
+    name.className='user-name';
+    name.textContent=user.username;
+    row.appendChild(name);
+
+    const roleSelect=document.createElement('select');
+    roleSelect.value=user.role;
+    roleSelect.innerHTML='<option value="viewer">viewer</option><option value="admin">admin</option>';
+    row.appendChild(roleSelect);
+
+    const passwordInput=document.createElement('input');
+    passwordInput.type='password';
+    passwordInput.placeholder='nouveau mot de passe';
+    row.appendChild(passwordInput);
+
+    const saveBtn=document.createElement('button');
+    saveBtn.textContent='Save';
+    saveBtn.onclick=()=>updateUserFromRow(user.username,roleSelect.value,passwordInput.value);
+    row.appendChild(saveBtn);
+
+    const deleteBtn=document.createElement('button');
+    deleteBtn.textContent='Delete';
+    deleteBtn.onclick=()=>deleteUserFromRow(user.username);
+    if(user.username===currentUsername) deleteBtn.disabled=true;
+    row.appendChild(deleteBtn);
+
+    usersList.appendChild(row);
+   });
+  }
+
+  async function refreshUsersList(){
+   if(role!=='admin') return;
+   usersList.textContent='Chargement...';
+   try{
+    const response=await apiFetch('/auth/users');
+    if(!response.ok) throw new Error('load users failed');
+    const data=await response.json();
+    renderUsersList(Array.isArray(data.users)?data.users:[]);
+   }catch(_err){
+    usersList.textContent='Erreur chargement utilisateurs';
+   }
+  }
+
+  async function openUsersModal(){
+   if(role!=='admin') return;
+   usersError.textContent='';
+   usersNameInput.value='';
+   usersPasswordInput.value='';
+   usersRoleInput.value='viewer';
+   usersModal.style.display='flex';
+   await refreshUsersList();
+  }
+
+  async function createUserFromModal(){
+   if(role!=='admin') return;
+   usersError.textContent='';
+   const username=(usersNameInput.value||'').trim().toLowerCase();
+   const password=usersPasswordInput.value||'';
+   const roleValue=usersRoleInput.value==='admin'?'admin':'viewer';
+   try{
+    const response=await apiFetch('/auth/users',{
+     method:'POST',
+     headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({username,password,role:roleValue})
+    });
+    if(response.status===409){ usersError.textContent='Utilisateur déjà existant'; return; }
+    if(response.status===400){ usersError.textContent='Données invalides'; return; }
+    if(!response.ok) throw new Error('create user failed');
+    usersNameInput.value='';
+    usersPasswordInput.value='';
+    usersRoleInput.value='viewer';
+    await refreshUsersList();
+   }catch(_err){
+    usersError.textContent='Erreur création utilisateur';
+   }
+  }
+
+  async function updateUserFromRow(username,roleValue,password){
+   if(role!=='admin') return;
+   usersError.textContent='';
+   try{
+    const response=await apiFetch(`/auth/users/${encodeURIComponent(username)}`,{
+     method:'PATCH',
+     headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({role:roleValue,password})
+    });
+    if(response.status===400){ usersError.textContent='Modification refusée'; return; }
+    if(response.status===404){ usersError.textContent='Utilisateur introuvable'; return; }
+    if(!response.ok) throw new Error('update failed');
+    await refreshUsersList();
+   }catch(_err){
+    usersError.textContent='Erreur modification utilisateur';
+   }
+  }
+
+  async function deleteUserFromRow(username){
+   if(role!=='admin') return;
+   if(!confirm(`Supprimer l'utilisateur "${username}" ?`)) return;
+   usersError.textContent='';
+   try{
+    const response=await apiFetch(`/auth/users/${encodeURIComponent(username)}`,{method:'DELETE'});
+    if(response.status===400){ usersError.textContent='Suppression refusée'; return; }
+    if(response.status===404){ usersError.textContent='Utilisateur introuvable'; return; }
+    if(!response.ok) throw new Error('delete failed');
+    await refreshUsersList();
+   }catch(_err){
+    usersError.textContent='Erreur suppression utilisateur';
+   }
+  }
+
 window.addEventListener('keydown',e=>{
  if(e.key!=='Escape') return;
  if(imageModal.style.display==='flex'){ closeFullImage(); return; }
@@ -565,6 +725,7 @@ window.addEventListener('keydown',e=>{
  if(renameProjectModal.style.display==='flex'){ closeRenameProject(); return; }
  if(deleteProjectModal.style.display==='flex'){ closeDeleteProjectConfirm(); return; }
  if(projectSettingsModal.style.display==='flex'){ closeProjectSettings(); return; }
+ if(usersModal.style.display==='flex'){ closeUsersModal(); return; }
  if(formModal.style.display==='flex'){ closeForm(); return; }
  if(viewModal.style.display==='flex'){ closeView(); return; }
  if(projectListModal.style.display==='flex'){ closeProjectList(); }
@@ -575,7 +736,7 @@ async function saveProject(){
  currentProjectName=projectName;
  updateProjectHeader();
  try{
-  const response=await fetch('/save',{
+  const response=await apiFetch('/save',{
    method:'POST',
    headers:{'Content-Type':'application/json'},
    body:JSON.stringify({projectName,image:plan.src,hotspots,createdAt:currentProjectCreatedAt})
@@ -596,3 +757,4 @@ async function saveProject(){
 
 updateProjectHeader();
 updateModeUi();
+bootstrapAuth();
