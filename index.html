@@ -159,7 +159,7 @@ async function resolveImageUrl(src){
 
 async function openView(h){ currentView=h; viewTitle.innerText=h.title; viewDesc.innerText=h.desc; viewGallery.innerHTML='';
  const resolvedSources=await Promise.all((h.images||[]).map(resolveImageUrl));
- resolvedSources.forEach(src=>{ const img=document.createElement('img'); img.src=src; viewGallery.appendChild(img); });
+ resolvedSources.forEach(src=>{ const img=document.createElement('img'); img.src=src; img.style.maxWidth='60px'; viewGallery.appendChild(img); });
  viewModal.style.display='flex'; }
 function closeView(){ viewModal.style.display='none'; }
 function editHotspot(){ if(role!=='admin') return; closeView(); openForm(currentView); }
