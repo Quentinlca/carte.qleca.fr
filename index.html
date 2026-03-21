@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<title>Interactive Plan Builder PRO+</title>
+<style>
+body { margin:0; font-family:Arial; overflow:hidden; }
+#toolbar { position:relative; z-index:1000; background:#222; color:#fff; padding:10px; }
+#toolbar button,label { margin-right:10px; }
+#plan-container { width:100%; height:calc(100vh - 50px); background:#eee; overflow:hidden; cursor:default; position:relative; }
+#plan-wrapper { position:absolute; transform-origin:top left; }
+#plan { display:block; max-width:none; user-select:none; -webkit-user-drag:none; }
+.hotspot {
+  position:absolute; width:10px; height:10px; border-radius:50%;
+  border:2px solid #fff; cursor:pointer; transform:translate(-50%,-50%);
+  transition:0.2s;
+}
+.hotspot:hover { width:18px; height:18px; }
+.modal { position:fixed; inset:0; background:rgba(0,0,0,0.8); display:none; justify-content:center; align-items:center; }
+.modal-content { background:#fff; padding:20px; max-width:600px; width:90%; border-radius:10px; }
+.gallery img { max-width:100px; margin:5px; cursor:pointer; }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <button onclick="toggleMode()">Mode: <span id="modeLabel">viewer</span></button>
+  <button onclick="login('admin')">Login Admin</button>
+  <button onclick="login('viewer')">Login Viewer</button>
+  <button onclick="logout()">Logout</button>
+  <label>📷 Plan <input type="file" id="imageUpload"></label>
+  <button onclick="saveProject()">💾 Save</button>
+  <label>📂 JSON <input type="file" id="loadProject"></label>
+</div>
+
+<div id="plan-container"><div id="plan-wrapper"><img id="plan"></div></div>
+
+<div id="formModal" class="modal">
+  <div class="modal-content">
+    <h3>Créer / Modifier</h3>
+    <input id="title" placeholder="Nom">
+    <input type="color" id="color">
+    <textarea id="desc"></textarea>
+    <input type="file" id="imagesInput" multiple>
+    <button onclick="saveHotspot()">OK</button>
+    <button onclick="closeForm()">Annuler</button>
+  </div>
+</div>
+
+<div id="viewModal" class="modal">
+  <div class="modal-content">
+    <h2 id="viewTitle"></h2>
+    <p id="viewDesc"></p>
+    <div id="viewGallery"></div>
+    <button onclick="editHotspot()">Modifier</button>
+    <button onclick="deleteHotspot()">Supprimer</button>
+    <button onclick="closeView()">Fermer</button>
+  </div>
+</div>
+
+<script>
+let role='viewer';
+function login(r){ role=r; alert('Connecté en '+r); }
+function logout(){ role='viewer'; }
+function toggleMode(){ if(role!=='admin') return alert('admin only'); }
+
+const plan=document.getElementById('plan');
+const wrapper=document.getElementById('plan-wrapper');
+const container=document.getElementById('plan-container');
+plan.draggable=false;
+plan.addEventListener('dragstart',e=>e.preventDefault());
+
+let hotspots=[], tempCoords=null, editingId=null, currentView=null;
+
+let scale=1, originX=0, originY=0;
+let isDragging=false, moved=false, startX,startY;
+
+// zoom doux avec centre à la souris
+container.addEventListener('wheel',e=>{
+ e.preventDefault();
+ const rect=container.getBoundingClientRect();
+ const mouseX=e.clientX-rect.left;
+ const mouseY=e.clientY-rect.top;
+ const zoom=e.deltaY<0?1.05:0.95;
+ 
+ originX=mouseX-(mouseX-originX)*zoom;
+ originY=mouseY-(mouseY-originY)*zoom;
+ scale*=zoom;
+ 
+ wrapper.style.transform=`translate(${originX}px,${originY}px) scale(${scale})`;
+});
+
+// pan uniquement drag
+container.addEventListener('mousedown',e=>{
+ if(e.button!==0) return;
+ e.preventDefault();
+ isDragging=true; moved=false;
+ startX=e.clientX-originX; startY=e.clientY-originY;
+ container.style.cursor='grabbing';
+});
+
+window.addEventListener('mousemove',e=>{
+ if(!isDragging) return;
+ if (originX!==e.clientX-startX && originY!==e.clientY-startY) moved=true;
+ originX=e.clientX-startX; originY=e.clientY-startY;
+ wrapper.style.transform=`translate(${originX}px,${originY}px) scale(${scale})`;
+});
+
+window.addEventListener('mouseup',()=>{
+ isDragging=false;
+ container.style.cursor='default';
+});
+
+// double click pour créer
+container.addEventListener('click',e=>{
+ if(moved) return;
+ console.log("Click");
+ if(role!=='admin') return;
+ const rect=plan.getBoundingClientRect();
+ tempCoords={ x:(e.clientX-rect.left)/rect.width, y:(e.clientY-rect.top)/rect.height };
+ openForm();
+});
+
+function openForm(h=null){ formModal.style.display='flex'; if(h){ editingId=h.id; title.value=h.title; color.value=h.color; desc.value=h.desc;} else { editingId=null; title.value=''; desc.value=''; imagesInput.value=''; }}
+function closeForm(){ formModal.style.display='none'; }
+
+function saveHotspot(){
+ const files=imagesInput.files;
+ Promise.all([...files].map(f=>{
+  const formData=new FormData(); formData.append('file',f);
+  return fetch('/upload',{method:'POST',body:formData}).then(r=>r.text());
+ })).then(urls=>{
+  if(editingId){ let h=hotspots.find(h=>h.id===editingId); h.title=title.value; h.color=color.value; h.desc=desc.value; if(urls.length) h.images=urls; }
+  else { hotspots.push({id:Date.now(),...tempCoords,title:title.value,color:color.value,desc:desc.value,images:urls}); }
+  refresh(); closeForm();
+ });
+}
+
+function createHotspotElement(h){
+ const el=document.createElement('div'); el.className='hotspot';
+ el.style.left=(h.x*100)+'%'; el.style.top=(h.y*100)+'%'; el.style.background=h.color;
+ el.onclick=e=>{ e.stopPropagation(); openView(h); };
+ wrapper.appendChild(el);
+}
+
+function refresh(){ wrapper.querySelectorAll('.hotspot').forEach(e=>e.remove()); hotspots.forEach(createHotspotElement); }
+
+function openView(h){ currentView=h; viewTitle.innerText=h.title; viewDesc.innerText=h.desc; viewGallery.innerHTML='';
+ h.images.forEach(src=>{ const img=document.createElement('img'); img.src=src; viewGallery.appendChild(img); });
+ viewModal.style.display='flex'; }
+function closeView(){ viewModal.style.display='none'; }
+function editHotspot(){ if(role!=='admin') return; closeView(); openForm(currentView); }
+function deleteHotspot(){ if(role!=='admin') return; hotspots=hotspots.filter(h=>h.id!==currentView.id); closeView(); refresh(); }
+
+imageUpload.onchange=e=>{ const r=new FileReader(); r.onload=()=>plan.src=r.result; r.readAsDataURL(e.target.files[0]); };
+loadProject.onchange=e=>{ const r=new FileReader(); r.onload=()=>{ const d=JSON.parse(r.result); plan.src=d.image; hotspots=d.hotspots; refresh(); }; r.readAsText(e.target.files[0]); };
+
+function saveProject(){ fetch('/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:plan.src,hotspots})}); }
+
+// backend express exemple
+/*
+const express=require('express'); const multer=require('multer');
+const upload=multer({dest:'uploads/'});
+const app=express(); app.use(express.json({limit:'50mb'}));
+app.post('/upload',upload.single('file'),(req,res)=>{ res.send('/uploads/'+req.file.filename); });
+app.post('/save',(req,res)=>{ require('fs').writeFileSync('project.json',JSON.stringify(req.body)); res.send('ok'); });
+app.listen(3000);
+*/
+
+</script>
+</body>
+</html>

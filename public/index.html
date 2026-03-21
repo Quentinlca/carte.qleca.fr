@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<title>Interactive Plan Builder PRO+</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="toolbar">
+  <button onclick="toggleMode()">Mode: <span id="modeLabel">viewer</span></button>
+  <button onclick="login('admin')">Login Admin</button>
+  <button onclick="login('viewer')">Login Viewer</button>
+  <button onclick="logout()">Logout</button>
+  <label>📷 Plan <input type="file" id="imageUpload"></label>
+  <button onclick="saveProject()">💾 Save</button>
+  <label>📂 JSON <input type="file" id="loadProject"></label>
+</div>
+
+<div id="plan-container"><div id="plan-wrapper"><img id="plan"></div></div>
+
+<div id="formModal" class="modal">
+  <div class="modal-content">
+    <h3>Créer / Modifier</h3>
+    <input id="title" placeholder="Nom">
+    <input type="color" id="color">
+    <textarea id="desc"></textarea>
+    <input type="file" id="imagesInput" multiple>
+    <button onclick="saveHotspot()">OK</button>
+    <button onclick="closeForm()">Annuler</button>
+  </div>
+</div>
+
+<div id="viewModal" class="modal">
+  <div class="modal-content">
+    <h2 id="viewTitle"></h2>
+    <p id="viewDesc"></p>
+    <div id="viewGallery"></div>
+    <button onclick="editHotspot()">Modifier</button>
+    <button onclick="deleteHotspot()">Supprimer</button>
+    <button onclick="closeView()">Fermer</button>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
