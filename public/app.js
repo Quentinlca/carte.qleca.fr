@@ -30,8 +30,11 @@ const renameProjectModal=document.getElementById('renameProjectModal');
 const renameProjectInput=document.getElementById('renameProjectInput');
 const renameError=document.getElementById('renameError');
 const deleteProjectModal=document.getElementById('deleteProjectModal');
+const newProjectModal=document.getElementById('newProjectModal');
+const newProjectNameInput=document.getElementById('newProjectName');
+const newProjectImageInput=document.getElementById('newProjectImage');
+const newProjectError=document.getElementById('newProjectError');
 
-const imageUpload=document.getElementById('imageUpload');
 const modeLabel=document.getElementById('modeLabel');
 
 plan.draggable=false;
@@ -164,6 +167,7 @@ function saveHotspot(){
   }
   refresh();
   closeForm();
+    saveProject();
  });
 }
 
@@ -214,7 +218,7 @@ function closeView(){ viewModal.style.display='none'; }
 function showFullImage(src){ fullImage.src=src; imageModal.style.display='flex'; }
 function closeFullImage(){ imageModal.style.display='none'; fullImage.src=''; }
 function editHotspot(){ if(role!=='admin') return; closeView(); openForm(currentView); }
-function deleteHotspot(){ if(role!=='admin') return; hotspots=hotspots.filter(h=>h.id!==currentView.id); closeView(); refresh(); }
+function deleteHotspot(){ if(role!=='admin') return; hotspots=hotspots.filter(h=>h.id!==currentView.id); closeView(); refresh(); saveProject(); }
 
 function openProjectSettings(){
  settingsProjectName.textContent=currentProjectName;
@@ -236,6 +240,57 @@ function closeRenameProject(){ renameProjectModal.style.display='none'; }
 function openDeleteProjectConfirm(){ if(role==='admin') deleteProjectModal.style.display='flex'; }
 function closeDeleteProjectConfirm(){ deleteProjectModal.style.display='none'; }
 function closeProjectList(){ projectListModal.style.display='none'; }
+
+function openNewProjectModal(){
+ newProjectNameInput.value='';
+ newProjectImageInput.value='';
+ newProjectError.textContent='';
+ newProjectModal.style.display='flex';
+}
+
+function closeNewProjectModal(){ newProjectModal.style.display='none'; }
+
+function readFileAsDataUrl(file){
+ return new Promise((resolve,reject)=>{
+  const reader=new FileReader();
+  reader.onload=()=>resolve(reader.result);
+  reader.onerror=()=>reject(new Error('file read error'));
+  reader.readAsDataURL(file);
+ });
+}
+
+newProjectImageInput.addEventListener('change',e=>{
+ const selected=e.target.files[0];
+ if(!selected || newProjectNameInput.value.trim()) return;
+ newProjectNameInput.value=sanitizeProjectName(selected.name.replace(/\.[^.]+$/,''));
+});
+
+async function confirmCreateProject(){
+ const selectedFile=newProjectImageInput.files[0];
+ if(!selectedFile){ newProjectError.textContent='Choisissez une image de fond.'; return; }
+ const projectName=sanitizeProjectName(newProjectNameInput.value);
+ newProjectNameInput.value=projectName;
+ newProjectError.textContent='';
+ try{
+  const image=await readFileAsDataUrl(selectedFile);
+  const response=await fetch('/project/create',{
+   method:'POST',
+   headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({projectName,image})
+  });
+  if(response.status===409){ newProjectError.textContent='Un projet avec ce nom existe déjà.'; return; }
+  if(!response.ok) throw new Error('create failed');
+  const result=await response.json();
+  applyLoadedProject(result.project,result.projectName);
+  currentProjectCreatedAt=result.project.createdAt||null;
+  currentProjectUpdatedAt=result.project.updatedAt||null;
+  projectNameCustomized=true;
+  closeNewProjectModal();
+  setSaveStatus(`Projet créé: ${currentProjectName}`);
+ }catch(_err){
+  newProjectError.textContent='Erreur lors de la création du projet.';
+ }
+}
 
 async function confirmRenameProject(){
  if(role!=='admin') return;
@@ -315,6 +370,72 @@ async function loadProjectByName(name){
  setSaveStatus(`Loaded: ${currentProjectName}`);
 }
 
+async function renameProjectFromList(name){
+ if(role!=='admin') return;
+ const proposed=prompt('Nouveau nom du projet :',name);
+ if(proposed===null) return;
+ const newName=sanitizeProjectName(proposed);
+ if(newName===sanitizeProjectName(name)) return;
+ try{
+  const response=await fetch('/project/rename',{
+   method:'POST',
+   headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({fromName:name,toName:newName})
+  });
+  if(response.status===409){ setSaveStatus('Ce nom existe déjà.',true); return; }
+  if(!response.ok) throw new Error('rename failed');
+  if(sanitizeProjectName(currentProjectName)===sanitizeProjectName(name)){
+   currentProjectName=newName;
+   updateProjectHeader();
+  }
+  setSaveStatus(`Renommé: ${name} → ${newName}`);
+  openProjectList();
+ }catch(_err){
+  setSaveStatus('Erreur de renommage',true);
+ }
+}
+
+async function duplicateProjectFromList(name){
+ if(role!=='admin') return;
+ try{
+  const response=await fetch('/project/duplicate',{
+   method:'POST',
+   headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({name})
+  });
+  if(response.status===409){ setSaveStatus('La copie existe déjà.',true); return; }
+  if(!response.ok) throw new Error('duplicate failed');
+  const result=await response.json();
+  await loadProjectByName(result.projectName);
+  setSaveStatus(`Dupliqué: ${result.projectName}`);
+ }catch(_err){
+  setSaveStatus('Erreur duplication projet',true);
+ }
+}
+
+async function deleteProjectFromList(name){
+ if(role!=='admin') return;
+ if(!confirm(`Supprimer le projet "${name}" ?`)) return;
+ try{
+  const response=await fetch(`/project/${encodeURIComponent(name)}`,{method:'DELETE'});
+  if(!response.ok) throw new Error('delete failed');
+  if(sanitizeProjectName(currentProjectName)===sanitizeProjectName(name)){
+   hotspots=[];
+   plan.src='';
+   currentProjectName='project';
+   currentProjectCreatedAt=null;
+   currentProjectUpdatedAt=null;
+   projectNameCustomized=false;
+   refresh();
+   updateProjectHeader();
+  }
+  setSaveStatus(`Projet supprimé: ${name}`);
+  openProjectList();
+ }catch(_err){
+  setSaveStatus('Erreur suppression projet',true);
+ }
+}
+
 async function openProjectList(){
  projectList.innerHTML='Chargement...';
  projectListModal.style.display='flex';
@@ -325,10 +446,39 @@ async function openProjectList(){
   if(!projects.length){ projectList.textContent='Aucun projet sauvegardé.'; return; }
   projectList.innerHTML='';
   projects.forEach(name=>{
-   const btn=document.createElement('button');
-   btn.textContent=name;
-   btn.onclick=()=>loadProjectByName(name).catch(()=>setSaveStatus('Erreur chargement projet',true));
-   projectList.appendChild(btn);
+    const row=document.createElement('div');
+    row.className='project-row';
+
+    const loadBtn=document.createElement('button');
+    loadBtn.className='project-load-btn';
+    loadBtn.textContent=name;
+    loadBtn.onclick=()=>loadProjectByName(name).catch(()=>setSaveStatus('Erreur chargement projet',true));
+    row.appendChild(loadBtn);
+
+    if(role==='admin'){
+     const renameBtn=document.createElement('button');
+     renameBtn.className='project-action-btn';
+     renameBtn.textContent='🖉';
+     renameBtn.title='Renommer';
+     renameBtn.onclick=()=>renameProjectFromList(name);
+     row.appendChild(renameBtn);
+
+     const duplicateBtn=document.createElement('button');
+     duplicateBtn.className='project-action-btn';
+     duplicateBtn.textContent='🗍';
+     duplicateBtn.title='Dupliquer';
+     duplicateBtn.onclick=()=>duplicateProjectFromList(name);
+     row.appendChild(duplicateBtn);
+
+     const deleteBtn=document.createElement('button');
+     deleteBtn.className='project-action-btn';
+     deleteBtn.textContent='🗑️';
+     deleteBtn.title='Supprimer';
+     deleteBtn.onclick=()=>deleteProjectFromList(name);
+     row.appendChild(deleteBtn);
+    }
+
+    projectList.appendChild(row);
   });
  }catch(_err){
   projectList.textContent='Erreur lors du chargement des projets.';
@@ -338,6 +488,7 @@ async function openProjectList(){
 window.addEventListener('keydown',e=>{
  if(e.key!=='Escape') return;
  if(imageModal.style.display==='flex'){ closeFullImage(); return; }
+ if(newProjectModal.style.display==='flex'){ closeNewProjectModal(); return; }
  if(renameProjectModal.style.display==='flex'){ closeRenameProject(); return; }
  if(deleteProjectModal.style.display==='flex'){ closeDeleteProjectConfirm(); return; }
  if(projectSettingsModal.style.display==='flex'){ closeProjectSettings(); return; }
@@ -345,17 +496,6 @@ window.addEventListener('keydown',e=>{
  if(viewModal.style.display==='flex'){ closeView(); return; }
  if(projectListModal.style.display==='flex'){ closeProjectList(); }
 });
-
-imageUpload.onchange=e=>{
- const selectedFile=e.target.files[0];
- if(selectedFile && !projectNameCustomized){
-  currentProjectName=sanitizeProjectName(selectedFile.name.replace(/\.[^.]+$/,''));
-  updateProjectHeader();
- }
- const reader=new FileReader();
- reader.onload=()=>plan.src=reader.result;
- reader.readAsDataURL(e.target.files[0]);
-};
 
 async function saveProject(){
  const projectName=sanitizeProjectName(currentProjectName);

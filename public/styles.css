@@ -18,9 +18,13 @@ body { margin:0; font-family:Arial; overflow:hidden; }
 .modal { position:fixed; inset:0; background:rgba(0,0,0,0.8); display:none; justify-content:center; align-items:center; }
 .modal-content { background:#fff; padding:20px; max-width:600px; width:90%; border-radius:10px; }
 #viewGallery img { width:72px; height:72px; object-fit:cover; margin:5px; cursor:zoom-in; border-radius:6px; }
-#projectList button { width:100%; margin:5px 0; text-align:left; padding:8px; }
+#projectList button { margin:5px 0; text-align:left; padding:8px; }
+#projectList .project-row { display:flex; align-items:center; gap:8px; margin:6px 0; }
+#projectList .project-load-btn { flex:1; }
+#projectList .project-action-btn { min-width:36px; text-align:center; padding:6px 8px; }
 #projectActions { display:flex; gap:10px; margin:14px 0; }
 #projectActions button { padding:8px 10px; }
 #renameError { color:#c00; min-height:18px; }
+#newProjectError { color:#c00; min-height:18px; }
 #imageModal { z-index:2000; }
 #fullImage { max-width:92vw; max-height:92vh; object-fit:contain; }

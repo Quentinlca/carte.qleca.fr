@@ -20,8 +20,7 @@
   <button onclick="login('admin')">Login Admin</button>
   <button onclick="login('viewer')">Login Viewer</button>
   <button onclick="logout()">Logout</button>
-  <label>📷 Plan <input type="file" id="imageUpload"></label>
-  <button onclick="saveProject()">💾 Save</button>
+  <button onclick="openNewProjectModal()">📄 New Project</button>
   <button onclick="openProjectList()">📂 Load Project</button>
 </div>
 
@@ -70,9 +69,9 @@
     <p><strong>Dernière modification:</strong> <span id="settingsUpdatedAt"></span></p>
     <p><strong>Nombre de points:</strong> <span id="settingsPointCount"></span></p>
     <div id="projectActions">
-      <button id="renameProjectBtn" onclick="openRenameProject()">✏️ Renommer</button>
-      <button id="duplicateProjectBtn" onclick="duplicateProject()">📄 Dupliquer</button>
-      <button id="deleteProjectBtn" onclick="openDeleteProjectConfirm()">🗑️ Supprimer</button>
+      <button id="renameProjectBtn" onclick="openRenameProject()">🖉</button>
+      <button id="duplicateProjectBtn" onclick="duplicateProject()">🗍</button>
+      <button id="deleteProjectBtn" onclick="openDeleteProjectConfirm()">🗑️</button>
     </div>
     <button onclick="closeProjectSettings()">Fermer</button>
   </div>
@@ -94,6 +93,17 @@
     <p>Confirmer la suppression de ce projet ?</p>
     <button onclick="confirmDeleteProject()">Oui, supprimer</button>
     <button onclick="closeDeleteProjectConfirm()">Annuler</button>
+  </div>
+</div>
+
+<div id="newProjectModal" class="modal">
+  <div class="modal-content">
+    <h3>Nouveau projet</h3>
+    <input id="newProjectName" type="text" placeholder="Nom du projet">
+    <input id="newProjectImage" type="file" accept="image/*">
+    <p id="newProjectError"></p>
+    <button onclick="confirmCreateProject()">Créer</button>
+    <button onclick="closeNewProjectModal()">Annuler</button>
   </div>
 </div>
 

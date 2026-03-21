@@ -147,6 +147,26 @@ app.post('/save', (req, res) => {
   return res.json({ ok: true, projectName, createdAt: payload.createdAt, updatedAt: payload.updatedAt });
 });
 
+app.post('/project/create', (req, res) => {
+  const projectName = sanitizeProjectName(req.body?.projectName);
+  const filePath = projectFilePathFromName(projectName);
+  if (fs.existsSync(filePath)) {
+    return res.status(409).json({ error: 'project name already exists' });
+  }
+
+  const now = new Date().toISOString();
+  const payload = {
+    projectName,
+    createdAt: now,
+    updatedAt: now,
+    image: req.body?.image || '',
+    hotspots: []
+  };
+
+  fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf8');
+  return res.json({ ok: true, projectName, project: payload });
+});
+
 app.get('/projects', (_req, res) => {
   const projects = fs.readdirSync(dataDir)
     .filter(fileName => fileName.toLowerCase().endsWith('.json'))
