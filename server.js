@@ -29,6 +29,31 @@ function buildPrivateImageUrl(filename) {
   return `/image/${encoded}?sig=${signature}`;
 }
 
+function extractFilenameFromSource(source) {
+  if (!source || typeof source !== 'string') {
+    return null;
+  }
+
+  if (source.startsWith('/image/')) {
+    const pathname = source.split('?')[0];
+    const encodedName = pathname.slice('/image/'.length);
+    try {
+      return path.basename(decodeURIComponent(encodedName));
+    } catch (_err) {
+      return path.basename(encodedName);
+    }
+  }
+
+  const slashNormalized = source.replace(/\\/g, '/');
+  const marker = '/uploads/';
+  const markerIndex = slashNormalized.toLowerCase().lastIndexOf(marker);
+  if (markerIndex !== -1) {
+    return path.basename(slashNormalized.slice(markerIndex + marker.length));
+  }
+
+  return path.basename(slashNormalized);
+}
+
 function signaturesMatch(expected, received) {
   if (!received || expected.length !== received.length) {
     return false;
@@ -56,6 +81,21 @@ app.get('/image/:filename', (req, res) => {
     return res.status(404).send('Not found');
   }
   return res.sendFile(filePath);
+});
+
+app.get('/image-url', (req, res) => {
+  const source = typeof req.query.src === 'string' ? req.query.src : '';
+  const filename = extractFilenameFromSource(source);
+  if (!filename) {
+    return res.status(400).send('Invalid source');
+  }
+
+  const filePath = path.join(uploadsDir, filename);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).send('Not found');
+  }
+
+  return res.send(buildPrivateImageUrl(filename));
 });
 
 app.post('/upload', upload.single('file'), (req, res) => {

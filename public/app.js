@@ -122,12 +122,26 @@ function refresh(){
  hotspots.forEach(createHotspotElement);
 }
 
-function openView(h){
+async function resolveImageUrl(src){
+ if(!src || src.startsWith('data:') || /^https?:\/\//i.test(src)) return src;
+ if(src.startsWith('/image/')) return src;
+ try{
+  const response=await fetch(`/image-url?src=${encodeURIComponent(src)}`);
+  if(!response.ok) return src;
+  return await response.text();
+ }catch(_err){
+  return src;
+ }
+}
+
+async function openView(h){
  currentView=h;
  viewTitle.innerText=h.title;
  viewDesc.innerText=h.desc;
  viewGallery.innerHTML='';
- h.images.forEach(src=>{
+
+ const resolvedSources=await Promise.all((h.images||[]).map(resolveImageUrl));
+ resolvedSources.forEach(src=>{
   const img=document.createElement('img');
   img.src=src;
   viewGallery.appendChild(img);
