@@ -34,7 +34,19 @@
                 <input id="title" placeholder="Nom">
             </div>
             <div>
-                <input type="color" id="color">
+                <label>Type de point:</label>
+                <select id="pointType" onchange="togglePointTypeInput()">
+                  <option value="color">Point</option>
+                  <option value="emoji">Icone</option>
+                </select>
+              </div>
+              <div id="colorInputWrapper">
+                <label for="color">Couleur:</label>
+                <input type="color" id="color" value="#FF0000">
+              </div>
+              <div id="emojiInputWrapper" style="display:none;">
+                <label for="emoji">Icone:</label>
+                <input type="text" id="emoji" placeholder="📍" maxlength="2">
             </div>
             <div>
                 <textarea id="desc" placeholder="Description"></textarea>
@@ -54,8 +66,20 @@
     <p id="viewDesc"></p>
     <div id="viewGallery"></div>
     <button onclick="editHotspot()">Modifier</button>
-    <button onclick="deleteHotspot()">Supprimer</button>
+    <button onclick="deleteHotspotConfirm()">Supprimer</button>
     <button onclick="closeView()">Fermer</button>
+  </div>
+</div>
+
+<div id="deleteHotspotModal" class="modal">
+  <div class="modal-content">
+    <h3>Supprimer le point</h3>
+    <p>Êtes-vous sûr de vouloir supprimer ce point ?</p>
+    <p style="color: #ff9b9b; font-size: 0.9em;">Cette action est irréversible.</p>
+    <div style="display: flex; gap: 10px;">
+      <button onclick="confirmDeleteHotspot()" style="background-color: #ff6b6b; flex: 1;">Oui, supprimer</button>
+      <button onclick="closeDeleteHotspotConfirm()" style="flex: 1;">Annuler</button>
+    </div>
   </div>
 </div>
 

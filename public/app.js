@@ -7,7 +7,11 @@ const container=document.getElementById('plan-container');
 const formModal=document.getElementById('formModal');
 const viewModal=document.getElementById('viewModal');
 const title=document.getElementById('title');
+const pointType=document.getElementById('pointType');
 const color=document.getElementById('color');
+const emoji=document.getElementById('emoji');
+const colorInputWrapper=document.getElementById('colorInputWrapper');
+const emojiInputWrapper=document.getElementById('emojiInputWrapper');
 const desc=document.getElementById('desc');
 const imagesInput=document.getElementById('imagesInput');
 const viewTitle=document.getElementById('viewTitle');
@@ -34,6 +38,7 @@ const newProjectModal=document.getElementById('newProjectModal');
 const newProjectNameInput=document.getElementById('newProjectName');
 const newProjectImageInput=document.getElementById('newProjectImage');
 const newProjectError=document.getElementById('newProjectError');
+const deleteHotspotModal=document.getElementById('deleteHotspotModal');
 
 const modeLabel=document.getElementById('modeLabel');
 
@@ -132,16 +137,36 @@ container.addEventListener('click',e=>{
  openForm();
 });
 
+function togglePointTypeInput(){
+ if(pointType.value==='color'){
+  colorInputWrapper.style.display='block';
+  emojiInputWrapper.style.display='none';
+ }else{
+  colorInputWrapper.style.display='none';
+  emojiInputWrapper.style.display='block';
+ }
+}
+
 function openForm(h=null){
  formModal.style.display='flex';
  if(h){
   editingId=h.id;
   title.value=h.title;
-  color.value=h.color;
+  pointType.value=h.type||'color';
+  togglePointTypeInput();
+  if(h.type==='emoji'){
+   emoji.value=h.value||'📍';
+  }else{
+   color.value=h.value||'#FF0000';
+  }
   desc.value=h.desc;
  }else{
   editingId=null;
   title.value='';
+  pointType.value='color';
+  togglePointTypeInput();
+  color.value='#FF0000';
+  emoji.value='📍';
   desc.value='';
   imagesInput.value='';
  }
@@ -151,6 +176,8 @@ function closeForm(){ formModal.style.display='none'; }
 
 function saveHotspot(){
  const files=imagesInput.files;
+ const type=pointType.value;
+ const value=type==='emoji'?emoji.value:color.value;
  Promise.all([...files].map(f=>{
   const formData=new FormData();
   formData.append('file',f);
@@ -159,11 +186,12 @@ function saveHotspot(){
   if(editingId){
    const h=hotspots.find(x=>x.id===editingId);
    h.title=title.value;
-   h.color=color.value;
+   h.type=type;
+   h.value=value;
    h.desc=desc.value;
    if(urls.length) h.images=urls;
   }else{
-   hotspots.push({id:Date.now(),...tempCoords,title:title.value,color:color.value,desc:desc.value,images:urls});
+   hotspots.push({id:Date.now(),...tempCoords,title:title.value,type,value,desc:desc.value,images:urls});
   }
   refresh();
   closeForm();
@@ -176,8 +204,21 @@ function createHotspotElement(h){
  el.className='hotspot';
  el.style.left=(h.x*100)+'%';
  el.style.top=(h.y*100)+'%';
- el.style.background=h.color;
  el.onclick=e=>{ e.stopPropagation(); openView(h); };
+ 
+ if(h.type==='emoji'){
+  el.textContent=h.value||'📍';
+  el.style.fontSize='20px';
+  el.style.display='flex';
+  el.style.alignItems='center';
+  el.style.justifyContent='center';
+  el.style.width='28px';
+  el.style.height='28px';
+ }else{
+  el.style.background=h.value||'#FF0000';
+  el.style.width='10px';
+  el.style.height='10px';
+ }
  wrapper.appendChild(el);
 }
 
@@ -218,7 +259,9 @@ function closeView(){ viewModal.style.display='none'; }
 function showFullImage(src){ fullImage.src=src; imageModal.style.display='flex'; }
 function closeFullImage(){ imageModal.style.display='none'; fullImage.src=''; }
 function editHotspot(){ if(role!=='admin') return; closeView(); openForm(currentView); }
-function deleteHotspot(){ if(role!=='admin') return; hotspots=hotspots.filter(h=>h.id!==currentView.id); closeView(); refresh(); saveProject(); }
+function deleteHotspotConfirm(){ if(role!=='admin') return; deleteHotspotModal.style.display='flex'; }
+function confirmDeleteHotspot(){ hotspots=hotspots.filter(h=>h.id!==currentView.id); closeDeleteHotspotConfirm(); closeView(); refresh(); saveProject(); }
+function closeDeleteHotspotConfirm(){ deleteHotspotModal.style.display='none'; }
 
 function openProjectSettings(){
  settingsProjectName.textContent=currentProjectName;
