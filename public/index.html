@@ -31,15 +31,12 @@
         <h3>Nouveau point</h3>
         <div style="display: flex; flex-direction: column; gap: 10px;">
             <div>
-                <label for="title">Nom</label>
                 <input id="title" placeholder="Nom">
             </div>
             <div>
-                <label for="color">Point color title</label>
                 <input type="color" id="color">
             </div>
             <div>
-                <label for="desc">Description</label>
                 <textarea id="desc" placeholder="Description"></textarea>
             </div>
             <input type="file" id="imagesInput" multiple>
@@ -112,11 +109,15 @@
 <div id="newProjectModal" class="modal">
   <div class="modal-content">
     <h3>Nouveau projet</h3>
-    <input id="newProjectName" type="text" placeholder="Nom du projet">
-    <input id="newProjectImage" type="file" accept="image/*">
-    <p id="newProjectError"></p>
-    <button onclick="confirmCreateProject()">Créer</button>
-    <button onclick="closeNewProjectModal()">Annuler</button>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            <input id="newProjectName" type="text" placeholder="Nom du projet">
+            <input id="newProjectImage" type="file" accept="image/*">
+            <p id="newProjectError"></p>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="confirmCreateProject()">Créer</button>
+                <button onclick="closeNewProjectModal()">Annuler</button>
+            </div>
+        </div>
   </div>
 </div>
 
