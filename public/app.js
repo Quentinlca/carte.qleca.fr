@@ -41,7 +41,7 @@ plan.draggable=false;
 plan.addEventListener('dragstart',e=>e.preventDefault());
 
 let hotspots=[], tempCoords=null, editingId=null, currentView=null;
-let currentProjectName='project';
+let currentProjectName='';
 let currentProjectCreatedAt=null;
 let currentProjectUpdatedAt=null;
 let projectNameCustomized=false;
