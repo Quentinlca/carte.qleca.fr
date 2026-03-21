@@ -27,15 +27,28 @@
 <div id="plan-container"><div id="plan-wrapper"><img id="plan"></div></div>
 
 <div id="formModal" class="modal">
-  <div class="modal-content">
-    <h3>Créer / Modifier</h3>
-    <input id="title" placeholder="Nom">
-    <input type="color" id="color">
-    <textarea id="desc"></textarea>
-    <input type="file" id="imagesInput" multiple>
-    <button onclick="saveHotspot()">OK</button>
-    <button onclick="closeForm()">Annuler</button>
-  </div>
+    <div class="modal-content">
+        <h3>Nouveau point</h3>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            <div>
+                <label for="title">Nom</label>
+                <input id="title" placeholder="Nom">
+            </div>
+            <div>
+                <label for="color">Point color title</label>
+                <input type="color" id="color">
+            </div>
+            <div>
+                <label for="desc">Description</label>
+                <textarea id="desc" placeholder="Description"></textarea>
+            </div>
+            <input type="file" id="imagesInput" multiple>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="saveHotspot()">OK</button>
+                <button onclick="closeForm()">Annuler</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div id="viewModal" class="modal">
