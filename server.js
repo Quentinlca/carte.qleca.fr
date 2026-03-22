@@ -27,7 +27,13 @@ function isValidUsername(value) {
 }
 
 function sanitizeRole(value) {
-  return value === 'admin' ? 'admin' : 'viewer';
+  if (value === 'admin') {
+    return 'admin';
+  }
+  if (value === 'editor') {
+    return 'editor';
+  }
+  return 'viewer';
 }
 
 function countAdmins(store) {
@@ -378,6 +384,14 @@ function requireAdmin(req, res, next) {
   return res.status(403).json({ error: 'admin only' });
 }
 
+function requireEditorOrAdmin(req, res, next) {
+  const role = sanitizeRole(req.session?.user?.role);
+  if (role === 'admin' || role === 'editor') {
+    return next();
+  }
+  return res.status(403).json({ error: 'editor/admin only' });
+}
+
 app.use(express.static(publicDir, { index: false }));
 
 app.get('/login', (_req, res) => {
@@ -397,14 +411,20 @@ app.post('/auth/login', async (req, res) => {
     return res.status(401).json({ error: 'invalid credentials' });
   }
 
-  req.session.user = { username: user.username, role: user.role };
+  req.session.user = { username: user.username, role: sanitizeRole(user.role) };
   return res.json({ ok: true, user: req.session.user });
 });
 
 app.post('/auth/users', requireAdmin, async (req, res) => {
   const username = normalizeUsername(req.body?.username);
   const password = typeof req.body?.password === 'string' ? req.body.password : '';
-  const role = req.body?.role === 'admin' ? 'admin' : req.body?.role === 'viewer' ? 'viewer' : null;
+  const role = req.body?.role === 'admin'
+    ? 'admin'
+    : req.body?.role === 'editor'
+      ? 'editor'
+      : req.body?.role === 'viewer'
+        ? 'viewer'
+        : null;
 
   if (!isValidUsername(username)) {
     return res.status(400).json({ error: 'invalid username format' });
@@ -456,11 +476,11 @@ app.patch('/auth/users/:username', requireAdmin, async (req, res) => {
   }
 
   if (roleProvided) {
-    if (nextRole !== 'admin' && nextRole !== 'viewer') {
+    if (nextRole !== 'admin' && nextRole !== 'editor' && nextRole !== 'viewer') {
       return res.status(400).json({ error: 'invalid role' });
     }
 
-    if (user.role === 'admin' && nextRole === 'viewer' && countAdmins(users) <= 1) {
+    if (user.role === 'admin' && nextRole !== 'admin' && countAdmins(users) <= 1) {
       return res.status(400).json({ error: 'cannot demote last admin' });
     }
 
@@ -565,7 +585,7 @@ app.get('/image-url', requireAuth, (req, res) => {
   return res.send(buildPrivateImageUrl(filename));
 });
 
-app.post('/upload', requireAdmin, upload.single('file'), (req, res) => {
+app.post('/upload', requireEditorOrAdmin, upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).send('No file uploaded');
   }

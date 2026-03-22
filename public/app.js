@@ -26,6 +26,7 @@ const fullImage=document.getElementById('fullImage');
 
 const projectNameText=document.getElementById('projectNameText');
 const saveStatus=document.getElementById('saveStatus');
+const projectBar=document.getElementById('project-bar');
 const projectSettingsModal=document.getElementById('projectSettingsModal');
 const projectListModal=document.getElementById('projectListModal');
 const myProjectList=document.getElementById('myProjectList');
@@ -163,11 +164,15 @@ function updateModeUi(){
  modeLabel.textContent=role;
  projectActions.style.display=canEditCurrentProject()?'flex':'none';
  usersAdminBtn.style.display=role==='admin'?'inline-block':'none';
- newProjectBtn.style.display=role==='admin'?'inline-block':'none';
+ newProjectBtn.style.display=role!=='viewer'?'inline-block':'none';
 }
 
 function updateProjectHeader(){
  projectNameText.textContent=currentProjectName;
+}
+
+function updateProjectBarVisibility(){
+ projectBar.style.display=currentProjectId?'flex':'none';
 }
 
 async function apiFetch(url,options={}){
@@ -184,7 +189,8 @@ async function bootstrapAuth(){
   const response=await apiFetch('/auth/me');
   if(!response.ok) throw new Error('auth failed');
   const payload=await response.json();
-  role=payload.user?.role==='admin'?'admin':'viewer';
+  const receivedRole=payload.user?.role;
+  role=(receivedRole==='admin'||receivedRole==='editor')?receivedRole:'viewer';
   currentUsername=payload.user?.username||'';
   updateModeUi();
  }catch(_err){
@@ -204,6 +210,7 @@ function applyLoadedProject(data,fallbackName){
  currentProjectPublicAccess=sanitizePublicAccess(data.publicAccess);
  projectNameCustomized=true;
  updateProjectHeader();
+ updateProjectBarVisibility();
  updateModeUi();
  refresh();
 }
@@ -585,6 +592,7 @@ async function confirmDeleteProject(){
   projectNameCustomized=false;
   refresh();
   updateProjectHeader();
+  updateProjectBarVisibility();
   updateModeUi();
   closeDeleteProjectConfirm();
   closeProjectSettings();
@@ -689,6 +697,7 @@ async function deleteProjectFromList(project){
    projectNameCustomized=false;
    refresh();
    updateProjectHeader();
+  updateProjectBarVisibility();
   updateModeUi();
   }
   setSaveStatus(`Projet supprimé: ${nameValue}`);
@@ -788,7 +797,7 @@ async function openProjectList(){
     row.appendChild(name);
 
     const roleSelect=document.createElement('select');
-    roleSelect.innerHTML='<option value="viewer">viewer</option><option value="admin">admin</option>';
+      roleSelect.innerHTML='<option value="viewer">viewer</option><option value="editor">editor</option><option value="admin">admin</option>';
     roleSelect.value=user.role;
     row.appendChild(roleSelect);
 
@@ -840,7 +849,7 @@ async function openProjectList(){
    usersError.textContent='';
    const username=(usersNameInput.value||'').trim().toLowerCase();
    const password=usersPasswordInput.value||'';
-   const roleValue=usersRoleInput.value==='admin'?'admin':'viewer';
+    const roleValue=usersRoleInput.value==='admin'?'admin':usersRoleInput.value==='editor'?'editor':'viewer';
    try{
     const response=await apiFetch('/auth/users',{
      method:'POST',
@@ -949,5 +958,6 @@ async function saveProject(){
 }
 
 updateProjectHeader();
+updateProjectBarVisibility();
 updateModeUi();
 bootstrapAuth();
