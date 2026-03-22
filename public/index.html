@@ -10,6 +10,7 @@
 
 <div id="project-bar">
   <div id="projectTitleWrap">
+    <button id="toolbarToggleBtn" onclick="toggleToolbar()">☰</button>
     <span id="projectNameText"></span>
     <span id="projectAccessBadge"></span>
     <button id="projectSettingsBtn" onclick="openProjectSettings()" title="Project settings">⚙️</button>
@@ -18,7 +19,6 @@
 </div>
 
 <div id="toolbar">
-  <button id="toolbarToggleBtn" onclick="toggleToolbar()">☰</button>
   <div id="toolbarContent">
     <span id="modeLabel">-</span>
     <button onclick="logout()">Logout</button>

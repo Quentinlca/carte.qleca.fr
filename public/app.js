@@ -203,10 +203,19 @@ function updateProjectHeader(){
 
 function updateProjectBarVisibility(){
  projectBar.style.display=currentProjectId?'flex':'none';
+ toolbar.classList.toggle('no-project',!currentProjectId);
+ if(currentProjectId){
+  toolbar.classList.remove('mobile-open');
+ }
 }
 
 function toggleToolbar(){
+ if(!currentProjectId) return;
  toolbar.classList.toggle('mobile-open');
+}
+
+function closeToolbarMenu(){
+ toolbar.classList.remove('mobile-open');
 }
 
 async function apiFetch(url,options={}){
@@ -529,6 +538,7 @@ function confirmDeleteHotspot(){ if(!canEditCurrentProject()) return; hotspots=h
 function closeDeleteHotspotConfirm(){ deleteHotspotModal.style.display='none'; }
 
 function openProjectSettings(){
+ closeToolbarMenu();
  settingsProjectName.textContent=currentProjectName;
  settingsOwner.textContent=currentProjectOwner||'-';
  settingsVisibility.textContent=currentProjectVisibility;
@@ -587,6 +597,7 @@ function closeDeleteProjectConfirm(){ deleteProjectModal.style.display='none'; }
 function closeProjectList(){ projectListModal.style.display='none'; }
 
 function openNewProjectModal(){
+ closeToolbarMenu();
  newProjectNameInput.value='';
  newProjectVisibilityInput.value='private';
  newProjectPublicAccessInput.value='view_only';
@@ -811,6 +822,7 @@ async function deleteProjectFromList(project){
 }
 
 async function openProjectList(){
+ closeToolbarMenu();
  myProjectList.textContent='Chargement...';
  communityProjectList.textContent='Chargement...';
  projectListModal.style.display='flex';
@@ -940,6 +952,7 @@ async function openProjectList(){
 
   async function openUsersModal(){
    if(role!=='admin') return;
+    closeToolbarMenu();
    usersError.textContent='';
    usersNameInput.value='';
    usersPasswordInput.value='';
