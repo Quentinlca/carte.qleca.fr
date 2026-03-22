@@ -68,6 +68,7 @@ const usersRoleInput=document.getElementById('usersRoleInput');
 const usersError=document.getElementById('usersError');
 
 const modeLabel=document.getElementById('modeLabel');
+const toolbar=document.getElementById('toolbar');
 
 plan.draggable=false;
 plan.addEventListener('dragstart',e=>e.preventDefault());
@@ -202,6 +203,10 @@ function updateProjectHeader(){
 
 function updateProjectBarVisibility(){
  projectBar.style.display=currentProjectId?'flex':'none';
+}
+
+function toggleToolbar(){
+ toolbar.classList.toggle('mobile-open');
 }
 
 async function apiFetch(url,options={}){
@@ -728,7 +733,6 @@ async function loadProjectById(projectId){
  const data=await response.json();
  applyLoadedProject(data,data.projectName);
  closeProjectList();
- setSaveStatus(`Loaded: ${currentProjectName}`);
 }
 
 async function renameProjectFromList(project){

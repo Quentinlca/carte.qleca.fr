@@ -11,18 +11,21 @@
 <div id="project-bar">
   <div id="projectTitleWrap">
     <span id="projectNameText"></span>
+    <span id="projectAccessBadge"></span>
     <button id="projectSettingsBtn" onclick="openProjectSettings()" title="Project settings">⚙️</button>
   </div>
-  <span id="projectAccessBadge"></span>
   <span id="saveStatus"></span>
 </div>
 
 <div id="toolbar">
-  <span id="modeLabel">-</span>
-  <button onclick="logout()">Logout</button>
-  <button id="usersAdminBtn" onclick="openUsersModal()" style="display:none;">👤 Users</button>
-  <button id="newProjectBtn" onclick="openNewProjectModal()">📄 New Project</button>
-  <button onclick="openProjectList()">📂 Load Project</button>
+  <button id="toolbarToggleBtn" onclick="toggleToolbar()">☰</button>
+  <div id="toolbarContent">
+    <span id="modeLabel">-</span>
+    <button onclick="logout()">Logout</button>
+    <button id="usersAdminBtn" onclick="openUsersModal()" style="display:none;">👤 Users</button>
+    <button id="newProjectBtn" onclick="openNewProjectModal()">📄 New Project</button>
+    <button onclick="openProjectList()">📂 Load Project</button>
+  </div>
 </div>
 
 <div id="plan-container"><div id="plan-wrapper"><img id="plan"></div></div>
