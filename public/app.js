@@ -64,6 +64,7 @@ const usersModal=document.getElementById('usersModal');
 const usersList=document.getElementById('usersList');
 const usersNameInput=document.getElementById('usersNameInput');
 const usersPasswordInput=document.getElementById('usersPasswordInput');
+const usersPasswordToggleBtn=document.getElementById('usersPasswordToggleBtn');
 const usersRoleInput=document.getElementById('usersRoleInput');
 const usersError=document.getElementById('usersError');
 
@@ -207,6 +208,16 @@ function updateProjectBarVisibility(){
  if(currentProjectId){
   toolbar.classList.remove('mobile-open');
  }
+}
+
+function togglePasswordVisibility(input,button){
+ const hidden=input.type==='password';
+ input.type=hidden?'text':'password';
+ button.textContent=hidden?'Masquer':'Voir';
+}
+
+if(usersPasswordToggleBtn && usersPasswordInput){
+ usersPasswordToggleBtn.addEventListener('click',()=>togglePasswordVisibility(usersPasswordInput,usersPasswordToggleBtn));
 }
 
 function toggleToolbar(){
@@ -917,10 +928,22 @@ async function openProjectList(){
     roleSelect.value=user.role;
     row.appendChild(roleSelect);
 
+    const passwordWrap=document.createElement('div');
+    passwordWrap.className='password-with-toggle';
+
     const passwordInput=document.createElement('input');
     passwordInput.type='password';
     passwordInput.placeholder='nouveau mot de passe';
-    row.appendChild(passwordInput);
+    passwordWrap.appendChild(passwordInput);
+
+    const passwordToggleBtn=document.createElement('button');
+    passwordToggleBtn.type='button';
+    passwordToggleBtn.className='password-toggle-btn';
+    passwordToggleBtn.textContent='Voir';
+    passwordToggleBtn.onclick=()=>togglePasswordVisibility(passwordInput,passwordToggleBtn);
+    passwordWrap.appendChild(passwordToggleBtn);
+
+    row.appendChild(passwordWrap);
 
     const saveBtn=document.createElement('button');
     saveBtn.textContent='Save';

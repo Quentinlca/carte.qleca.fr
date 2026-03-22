@@ -204,7 +204,10 @@
     <h3>Gestion des utilisateurs</h3>
     <div id="usersCreateBox">
       <input id="usersNameInput" type="text" placeholder="username (3-40 chars)">
-      <input id="usersPasswordInput" type="password" placeholder="mot de passe (min 8)">
+      <div class="password-with-toggle">
+        <input id="usersPasswordInput" type="password" placeholder="mot de passe (min 8)">
+        <button type="button" id="usersPasswordToggleBtn" class="password-toggle-btn">Voir</button>
+      </div>
       <select id="usersRoleInput">
         <option value="viewer">viewer</option>
         <option value="editor">editor</option>

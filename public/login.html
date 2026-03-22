@@ -10,6 +10,9 @@
     h1 { margin:0 0 14px; font-size:22px; }
     .field { display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
     input { padding:10px; border-radius:8px; border:1px solid #444; background:#0f0f0f; color:#fff; }
+    .password-row { display:flex; gap:8px; }
+    .password-row input { flex:1; }
+    .password-toggle { width:auto; padding:10px 12px; background:#3b3b3b; }
     button { width:100%; padding:10px; border:none; border-radius:8px; background:#4c8dff; color:#fff; cursor:pointer; }
     #loginError { color:#ff9b9b; min-height:18px; margin-top:10px; font-size:14px; }
     .hint { color:#bbb; font-size:12px; margin-top:10px; }
@@ -24,7 +27,10 @@
     </div>
     <div class="field">
       <label for="password">Mot de passe</label>
-      <input id="password" name="password" type="password" autocomplete="current-password" required />
+      <div class="password-row">
+        <input id="password" name="password" type="password" autocomplete="current-password" required />
+        <button type="button" id="toggleLoginPassword" class="password-toggle">Voir</button>
+      </div>
     </div>
     <button type="submit">Se connecter</button>
     <div id="loginError"></div>
@@ -33,6 +39,14 @@
   <script>
     const form=document.getElementById('loginForm');
     const error=document.getElementById('loginError');
+    const passwordInput=document.getElementById('password');
+    const toggleLoginPassword=document.getElementById('toggleLoginPassword');
+
+    toggleLoginPassword.addEventListener('click',()=>{
+      const isHidden=passwordInput.type==='password';
+      passwordInput.type=isHidden?'text':'password';
+      toggleLoginPassword.textContent=isHidden?'Masquer':'Voir';
+    });
 
     form.addEventListener('submit', async event => {
       event.preventDefault();
