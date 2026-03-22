@@ -35,14 +35,18 @@ body { margin:0; font-family:Arial; overflow:hidden; }
 .modal { position:fixed; inset:0; background:rgba(0,0,0,0.8); display:none; justify-content:center; align-items:center; }
 .modal-content { background:#fff; padding:20px; max-width:600px; width:90%; border-radius:10px; }
 #viewGallery img { width:72px; height:72px; object-fit:cover; margin:5px; cursor:zoom-in; border-radius:6px; }
-#projectList button { margin:5px 0; text-align:left; padding:8px; }
-#projectList .project-row { display:flex; align-items:center; gap:8px; margin:6px 0; }
-#projectList .project-load-btn { flex:1; }
-#projectList .project-action-btn { min-width:36px; text-align:center; padding:6px 8px; }
+#projectListColumns { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:12px; }
+.project-column { border:1px solid #ddd; border-radius:8px; padding:10px; min-height:160px; }
+.project-column h4 { margin:0 0 8px; }
+#myProjectList button,#communityProjectList button { margin:5px 0; text-align:left; padding:8px; }
+#myProjectList .project-row,#communityProjectList .project-row { display:flex; align-items:center; gap:8px; margin:6px 0; }
+#myProjectList .project-load-btn,#communityProjectList .project-load-btn { flex:1; }
+#myProjectList .project-action-btn,#communityProjectList .project-action-btn { min-width:36px; text-align:center; padding:6px 8px; }
 #projectActions { display:flex; gap:10px; margin:14px 0; }
 #projectActions button { padding:8px 10px; }
 #renameError { color:#c00; min-height:18px; }
 #newProjectError { color:#c00; min-height:18px; }
+#settingsAccessError { color:#c00; min-height:18px; margin:8px 0 0; }
 #usersCreateBox { display:grid; grid-template-columns: 1.2fr 1fr auto auto; gap:8px; margin-bottom:10px; }
 #usersError { color:#c00; min-height:18px; margin:4px 0 10px; }
 #usersList { max-height:300px; overflow:auto; display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }

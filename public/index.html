@@ -69,8 +69,8 @@
     <h2 id="viewTitle"></h2>
     <p id="viewDesc"></p>
     <div id="viewGallery"></div>
-    <button onclick="editHotspot()">Modifier</button>
-    <button onclick="deleteHotspotConfirm()">Supprimer</button>
+    <button id="editHotspotBtn" onclick="editHotspot()">Modifier</button>
+    <button id="deleteHotspotBtn" onclick="deleteHotspotConfirm()">Supprimer</button>
     <button onclick="closeView()">Fermer</button>
   </div>
 </div>
@@ -94,7 +94,16 @@
 <div id="projectListModal" class="modal">
   <div class="modal-content">
     <h3>Projets sauvegardés</h3>
-    <div id="projectList"></div>
+    <div id="projectListColumns">
+      <div class="project-column">
+        <h4>My projects</h4>
+        <div id="myProjectList"></div>
+      </div>
+      <div class="project-column">
+        <h4>Community projects</h4>
+        <div id="communityProjectList"></div>
+      </div>
+    </div>
     <button onclick="closeProjectList()">Fermer</button>
   </div>
 </div>
@@ -103,6 +112,25 @@
   <div class="modal-content">
     <h3>Paramètres du projet</h3>
     <p><strong>Nom:</strong> <span id="settingsProjectName"></span></p>
+    <p><strong>Propriétaire:</strong> <span id="settingsOwner"></span></p>
+    <p><strong>Visibilité:</strong> <span id="settingsVisibility"></span></p>
+    <p><strong>Accès public:</strong> <span id="settingsPublicAccess"></span></p>
+    <div id="projectAccessEditor" style="display:none; margin:12px 0;">
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <label for="settingsVisibilityInput">Visibilité</label>
+        <select id="settingsVisibilityInput">
+          <option value="private">private</option>
+          <option value="public">public</option>
+        </select>
+        <label for="settingsPublicAccessInput">Accès public</label>
+        <select id="settingsPublicAccessInput">
+          <option value="view_only">view_only</option>
+          <option value="editable">editable</option>
+        </select>
+        <button onclick="saveProjectAccessSettings()">Sauvegarder l'accès</button>
+      </div>
+      <p id="settingsAccessError"></p>
+    </div>
     <p><strong>Créé le:</strong> <span id="settingsCreatedAt"></span></p>
     <p><strong>Dernière modification:</strong> <span id="settingsUpdatedAt"></span></p>
     <p><strong>Nombre de points:</strong> <span id="settingsPointCount"></span></p>
@@ -139,6 +167,20 @@
     <h3>Nouveau projet</h3>
         <div style="display: flex; flex-direction: column; gap: 10px;">
             <input id="newProjectName" type="text" placeholder="Nom du projet">
+            <div>
+                <label for="newProjectVisibility">Visibilité</label>
+                <select id="newProjectVisibility">
+                  <option value="private">private</option>
+                  <option value="public">public</option>
+                </select>
+            </div>
+            <div>
+                <label for="newProjectPublicAccess">Accès public</label>
+                <select id="newProjectPublicAccess">
+                  <option value="view_only">view_only</option>
+                  <option value="editable">editable</option>
+                </select>
+            </div>
             <div>
                 <label for="newProjectImage">Background Image</label>
             <input id="newProjectImage" type="file" accept="image/*">

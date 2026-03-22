@@ -162,16 +162,192 @@ function sanitizeProjectName(name) {
   return safe || 'project';
 }
 
-function projectFilePathFromName(name) {
-  return path.join(dataDir, `${sanitizeProjectName(name)}.json`);
+function sanitizeProjectId(value) {
+  return String(value || '').trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 100);
 }
 
-function projectNameFromFile(fileName) {
-  return fileName.replace(/\.json$/i, '');
+function projectFilePathFromId(projectId) {
+  return path.join(dataDir, `${sanitizeProjectId(projectId)}.json`);
 }
 
 function readProjectFile(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+function generateProjectId() {
+  const random = typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID().replace(/-/g, '')
+    : crypto.randomBytes(16).toString('hex');
+  return `p_${random}`;
+}
+
+function sanitizeVisibility(value) {
+  return value === 'private' ? 'private' : 'public';
+}
+
+function sanitizePublicAccess(value) {
+  return value === 'view_only' ? 'view_only' : 'editable';
+}
+
+function normalizeProjectAccess(payload, fallbackOwner = '') {
+  const ownerUsername = normalizeUsername(payload?.ownerUsername || fallbackOwner || '');
+  const visibility = sanitizeVisibility(payload?.visibility);
+  const publicAccess = sanitizePublicAccess(payload?.publicAccess);
+  return { ownerUsername, visibility, publicAccess };
+}
+
+function normalizeProjectPayload(rawPayload, fallbackId, fallbackOwner = '') {
+  const projectId = sanitizeProjectId(rawPayload?.projectId || fallbackId || generateProjectId());
+  const projectName = sanitizeProjectName(rawPayload?.projectName || 'project');
+  const createdAt = rawPayload?.createdAt || new Date().toISOString();
+  const updatedAt = rawPayload?.updatedAt || createdAt;
+  const access = normalizeProjectAccess(rawPayload, fallbackOwner);
+  return {
+    projectId,
+    projectName,
+    createdAt,
+    updatedAt,
+    ownerUsername: access.ownerUsername,
+    visibility: access.visibility,
+    publicAccess: access.publicAccess,
+    image: rawPayload?.image || '',
+    hotspots: Array.isArray(rawPayload?.hotspots) ? rawPayload.hotspots : []
+  };
+}
+
+function listAllProjects() {
+  const entries = fs.readdirSync(dataDir)
+    .filter(fileName => fileName.toLowerCase().endsWith('.json'));
+
+  return entries.map(fileName => {
+    const filePath = path.join(dataDir, fileName);
+    const fallbackId = sanitizeProjectId(fileName.replace(/\.json$/i, ''));
+    try {
+      const raw = readProjectFile(filePath);
+      const fallbackOwner = raw?.ownerUsername || raw?.createdBy || '';
+      const normalized = normalizeProjectPayload(raw, fallbackId, fallbackOwner);
+      const serializedRaw = JSON.stringify(raw);
+      const serializedNormalized = JSON.stringify(normalized);
+      if (serializedRaw !== serializedNormalized) {
+        fs.writeFileSync(filePath, JSON.stringify(normalized, null, 2), 'utf8');
+      }
+      return { filePath, project: normalized };
+    } catch (_err) {
+      return null;
+    }
+  }).filter(Boolean);
+}
+
+function findProjectById(projectId) {
+  const id = sanitizeProjectId(projectId);
+  if (!id) {
+    return null;
+  }
+
+  const directPath = projectFilePathFromId(id);
+  if (fs.existsSync(directPath)) {
+    try {
+      const raw = readProjectFile(directPath);
+      const fallbackOwner = raw?.ownerUsername || raw?.createdBy || '';
+      const normalized = normalizeProjectPayload(raw, id, fallbackOwner);
+      if (JSON.stringify(raw) !== JSON.stringify(normalized)) {
+        fs.writeFileSync(directPath, JSON.stringify(normalized, null, 2), 'utf8');
+      }
+      return { filePath: directPath, project: normalized };
+    } catch (_err) {
+      return null;
+    }
+  }
+
+  const match = listAllProjects().find(item => item.project.projectId === id);
+  return match || null;
+}
+
+function isSameProjectName(left, right) {
+  return sanitizeProjectName(left).toLowerCase() === sanitizeProjectName(right).toLowerCase();
+}
+
+function userOwnsProject(user, project) {
+  return normalizeUsername(user?.username) === normalizeUsername(project?.ownerUsername);
+}
+
+function canManageProjectIdentity(user, project) {
+  if (user?.role === 'viewer') {
+    return false;
+  }
+  return userOwnsProject(user, project);
+}
+
+function hasOwnerNameConflict(allProjects, ownerUsername, projectName, excludeProjectId = '') {
+  const normalizedOwner = normalizeUsername(ownerUsername);
+  const excludedId = sanitizeProjectId(excludeProjectId);
+  return allProjects.some(item => {
+    const candidate = item.project;
+    if (sanitizeProjectId(candidate.projectId) === excludedId) {
+      return false;
+    }
+    if (normalizeUsername(candidate.ownerUsername) !== normalizedOwner) {
+      return false;
+    }
+    return isSameProjectName(candidate.projectName, projectName);
+  });
+}
+
+function hasPublicNameConflict(allProjects, projectName, excludeProjectId = '') {
+  const excludedId = sanitizeProjectId(excludeProjectId);
+  return allProjects.some(item => {
+    const candidate = item.project;
+    if (sanitizeProjectId(candidate.projectId) === excludedId) {
+      return false;
+    }
+    if (sanitizeVisibility(candidate.visibility) !== 'public') {
+      return false;
+    }
+    return isSameProjectName(candidate.projectName, projectName);
+  });
+}
+
+function canViewProject(user, project) {
+  const username = normalizeUsername(user?.username);
+  const owner = normalizeUsername(project?.ownerUsername);
+  const visibility = sanitizeVisibility(project?.visibility);
+  if (visibility === 'private') {
+    return !!username && username === owner;
+  }
+  return true;
+}
+
+function canEditProject(user, project) {
+  if (user?.role === 'viewer') {
+    return false;
+  }
+
+  const username = normalizeUsername(user?.username);
+  const owner = normalizeUsername(project?.ownerUsername);
+  const visibility = sanitizeVisibility(project?.visibility);
+  if (visibility === 'private') {
+    return !!username && username === owner;
+  }
+
+  const publicAccess = sanitizePublicAccess(project?.publicAccess);
+  if (publicAccess === 'editable') {
+    return true;
+  }
+
+  return !!username && username === owner;
+}
+
+function buildProjectSummary(payload) {
+  const normalized = normalizeProjectPayload(payload, payload?.projectId || '', payload?.ownerUsername || '');
+  return {
+    projectId: normalized.projectId,
+    projectName: normalized.projectName,
+    createdAt: normalized.createdAt,
+    updatedAt: normalized.updatedAt,
+    ownerUsername: normalized.ownerUsername,
+    visibility: normalized.visibility,
+    publicAccess: normalized.publicAccess
+  };
 }
 
 app.use(express.json({ limit: '50mb' }));
@@ -396,130 +572,264 @@ app.post('/upload', requireAdmin, upload.single('file'), (req, res) => {
   return res.send(buildPrivateImageUrl(req.file.filename));
 });
 
-app.post('/save', requireAdmin, (req, res) => {
-  const projectName = sanitizeProjectName(req.body?.projectName);
-  const filePath = projectFilePathFromName(projectName);
-  const now = new Date().toISOString();
-  let existing = null;
-  if (fs.existsSync(filePath)) {
-    existing = readProjectFile(filePath);
+app.post('/save', requireAuth, (req, res) => {
+  if (req.session.user?.role === 'viewer') {
+    return res.status(403).json({ error: 'viewer cannot modify projects' });
   }
 
-  const createdAt = existing?.createdAt || req.body?.createdAt || now;
+  const projectId = sanitizeProjectId(req.body?.projectId);
+  if (!projectId) {
+    return res.status(400).json({ error: 'projectId is required' });
+  }
 
+  const existingEntry = findProjectById(projectId);
+  if (!existingEntry) {
+    return res.status(404).json({ error: 'project not found' });
+  }
+
+  const existingProject = existingEntry.project;
+  if (!canEditProject(req.session.user, existingProject)) {
+    return res.status(403).json({ error: 'forbidden' });
+  }
+
+  const now = new Date().toISOString();
   const payload = {
-    projectName,
-    createdAt,
+    ...existingProject,
     updatedAt: now,
     image: req.body?.image || '',
     hotspots: Array.isArray(req.body?.hotspots) ? req.body.hotspots : []
   };
 
-  fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf8');
+  fs.writeFileSync(existingEntry.filePath, JSON.stringify(payload, null, 2), 'utf8');
 
-  return res.json({ ok: true, projectName, createdAt: payload.createdAt, updatedAt: payload.updatedAt });
+  return res.json({
+    ok: true,
+    projectId: payload.projectId,
+    projectName: payload.projectName,
+    createdAt: payload.createdAt,
+    updatedAt: payload.updatedAt,
+    ownerUsername: payload.ownerUsername,
+    visibility: payload.visibility,
+    publicAccess: payload.publicAccess
+  });
 });
 
-app.post('/project/create', requireAdmin, (req, res) => {
+app.post('/project/create', requireAuth, (req, res) => {
+  if (req.session.user?.role === 'viewer') {
+    return res.status(403).json({ error: 'viewer cannot modify projects' });
+  }
+
   const projectName = sanitizeProjectName(req.body?.projectName);
-  const filePath = projectFilePathFromName(projectName);
-  if (fs.existsSync(filePath)) {
-    return res.status(409).json({ error: 'project name already exists' });
+  const ownerUsername = normalizeUsername(req.session.user?.username);
+  const visibility = sanitizeVisibility(req.body?.visibility);
+  const publicAccess = sanitizePublicAccess(req.body?.publicAccess);
+  const allProjects = listAllProjects();
+
+  if (hasOwnerNameConflict(allProjects, ownerUsername, projectName)) {
+    return res.status(409).json({ error: 'user already has a project with this name' });
+  }
+
+  if (visibility === 'public' && hasPublicNameConflict(allProjects, projectName)) {
+    return res.status(409).json({ error: 'public project name already exists' });
   }
 
   const now = new Date().toISOString();
+  let projectId = generateProjectId();
+  while (fs.existsSync(projectFilePathFromId(projectId))) {
+    projectId = generateProjectId();
+  }
+
   const payload = {
+    projectId,
     projectName,
     createdAt: now,
     updatedAt: now,
+    ownerUsername,
+    visibility,
+    publicAccess,
     image: req.body?.image || '',
     hotspots: []
   };
 
+  const filePath = projectFilePathFromId(projectId);
   fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf8');
-  return res.json({ ok: true, projectName, project: payload });
+  return res.json({ ok: true, projectId, projectName, project: payload });
 });
 
-app.get('/projects', requireAuth, (_req, res) => {
-  const projects = fs.readdirSync(dataDir)
-    .filter(fileName => fileName.toLowerCase().endsWith('.json'))
-    .filter(fileName => fileName.toLowerCase() !== 'users.json')
-    .map(projectNameFromFile)
-    .sort((a, b) => a.localeCompare(b));
-  return res.json({ projects });
+app.get('/projects', requireAuth, (req, res) => {
+  const username = normalizeUsername(req.session.user?.username);
+  const records = listAllProjects()
+    .map(item => item.project)
+    .filter(project => canViewProject(req.session.user, project))
+    .map(buildProjectSummary);
+
+  const myProjects = records
+    .filter(project => normalizeUsername(project.ownerUsername) === username)
+    .sort((a, b) => a.projectName.localeCompare(b.projectName));
+
+  const communityProjects = records
+    .filter(project => normalizeUsername(project.ownerUsername) !== username)
+    .filter(project => project.visibility === 'public')
+    .sort((a, b) => a.projectName.localeCompare(b.projectName));
+
+  return res.json({ myProjects, communityProjects });
 });
 
-app.get('/project/:name', requireAuth, (req, res) => {
-  const projectName = sanitizeProjectName(req.params.name);
-  const projectFile = projectFilePathFromName(projectName);
-  if (!fs.existsSync(projectFile)) {
+app.get('/project/:id', requireAuth, (req, res) => {
+  const projectId = sanitizeProjectId(req.params.id);
+  const entry = findProjectById(projectId);
+  if (!entry) {
     return res.status(404).json({ error: 'project not found' });
   }
-  return res.sendFile(projectFile);
+
+  if (!canViewProject(req.session.user, entry.project)) {
+    return res.status(403).json({ error: 'forbidden' });
+  }
+
+  return res.json(entry.project);
 });
 
-app.post('/project/rename', requireAdmin, (req, res) => {
-  const fromName = sanitizeProjectName(req.body?.fromName);
-  const toName = sanitizeProjectName(req.body?.toName);
-  const fromFile = projectFilePathFromName(fromName);
-  const toFile = projectFilePathFromName(toName);
+app.post('/project/rename', requireAuth, (req, res) => {
+  if (req.session.user?.role === 'viewer') {
+    return res.status(403).json({ error: 'viewer cannot modify projects' });
+  }
 
-  if (!fs.existsSync(fromFile)) {
+  const projectId = sanitizeProjectId(req.body?.projectId);
+  const toName = sanitizeProjectName(req.body?.toName);
+
+  const entry = findProjectById(projectId);
+  if (!entry) {
     return res.status(404).json({ error: 'source project not found' });
   }
 
-  if (fromName !== toName && fs.existsSync(toFile)) {
-    return res.status(409).json({ error: 'project name already exists' });
+  const payload = entry.project;
+  if (!canManageProjectIdentity(req.session.user, payload)) {
+    return res.status(403).json({ error: 'forbidden' });
   }
 
-  const payload = readProjectFile(fromFile);
+  const allProjects = listAllProjects();
+  if (hasOwnerNameConflict(allProjects, payload.ownerUsername, toName, payload.projectId)) {
+    return res.status(409).json({ error: 'user already has a project with this name' });
+  }
+
+  if (payload.visibility === 'public' && hasPublicNameConflict(allProjects, toName, payload.projectId)) {
+    return res.status(409).json({ error: 'public project name already exists' });
+  }
+
   payload.projectName = toName;
   payload.updatedAt = new Date().toISOString();
-  if (!payload.createdAt) {
-    payload.createdAt = payload.updatedAt;
-  }
+  fs.writeFileSync(entry.filePath, JSON.stringify(payload, null, 2), 'utf8');
 
-  fs.writeFileSync(toFile, JSON.stringify(payload, null, 2), 'utf8');
-  if (fromFile !== toFile && fs.existsSync(fromFile)) {
-    fs.unlinkSync(fromFile);
-  }
-
-  return res.json({ ok: true, projectName: toName, createdAt: payload.createdAt, updatedAt: payload.updatedAt });
+  return res.json({
+    ok: true,
+    projectId: payload.projectId,
+    projectName: toName,
+    createdAt: payload.createdAt,
+    updatedAt: payload.updatedAt,
+    ownerUsername: payload.ownerUsername,
+    visibility: payload.visibility,
+    publicAccess: payload.publicAccess
+  });
 });
 
-app.post('/project/duplicate', requireAdmin, (req, res) => {
-  const sourceName = sanitizeProjectName(req.body?.name);
-  const sourceFile = projectFilePathFromName(sourceName);
-  if (!fs.existsSync(sourceFile)) {
+app.post('/project/access', requireAuth, (req, res) => {
+  if (req.session.user?.role === 'viewer') {
+    return res.status(403).json({ error: 'viewer cannot modify projects' });
+  }
+
+  const projectId = sanitizeProjectId(req.body?.projectId);
+  const entry = findProjectById(projectId);
+  if (!entry) {
+    return res.status(404).json({ error: 'project not found' });
+  }
+
+  const payload = entry.project;
+  if (!canManageProjectIdentity(req.session.user, payload)) {
+    return res.status(403).json({ error: 'forbidden' });
+  }
+
+  const nextVisibility = sanitizeVisibility(req.body?.visibility);
+  const nextPublicAccess = sanitizePublicAccess(req.body?.publicAccess);
+  const allProjects = listAllProjects();
+
+  if (nextVisibility === 'public' && hasPublicNameConflict(allProjects, payload.projectName, payload.projectId)) {
+    return res.status(409).json({ error: 'public project name already exists' });
+  }
+
+  payload.visibility = nextVisibility;
+  payload.publicAccess = nextPublicAccess;
+  payload.updatedAt = new Date().toISOString();
+  fs.writeFileSync(entry.filePath, JSON.stringify(payload, null, 2), 'utf8');
+
+  return res.json({ ok: true, project: buildProjectSummary(payload) });
+});
+
+app.post('/project/duplicate', requireAuth, (req, res) => {
+  if (req.session.user?.role === 'viewer') {
+    return res.status(403).json({ error: 'viewer cannot modify projects' });
+  }
+
+  const sourceId = sanitizeProjectId(req.body?.projectId);
+  const sourceEntry = findProjectById(sourceId);
+  if (!sourceEntry) {
     return res.status(404).json({ error: 'source project not found' });
   }
 
-  const duplicatedName = sanitizeProjectName(`${sourceName}_copy`);
-  const duplicateFile = projectFilePathFromName(duplicatedName);
-  if (fs.existsSync(duplicateFile)) {
-    return res.status(409).json({ error: 'duplicate project already exists' });
+  const sourcePayload = sourceEntry.project;
+  if (!canViewProject(req.session.user, sourcePayload)) {
+    return res.status(403).json({ error: 'forbidden' });
   }
 
-  const sourcePayload = readProjectFile(sourceFile);
+  const ownerUsername = normalizeUsername(req.session.user?.username);
+  const allProjects = listAllProjects();
+  let index = 1;
+  let duplicatedName = sanitizeProjectName(`${sourcePayload.projectName}_copy`);
+  while (
+    hasOwnerNameConflict(allProjects, ownerUsername, duplicatedName) ||
+    (sanitizeVisibility(sourcePayload.visibility) === 'public' && hasPublicNameConflict(allProjects, duplicatedName))
+  ) {
+    index += 1;
+    duplicatedName = sanitizeProjectName(`${sourcePayload.projectName}_copy${index}`);
+  }
+
   const now = new Date().toISOString();
+  let duplicateId = generateProjectId();
+  while (fs.existsSync(projectFilePathFromId(duplicateId))) {
+    duplicateId = generateProjectId();
+  }
+
   const duplicatePayload = {
     ...sourcePayload,
+    projectId: duplicateId,
     projectName: duplicatedName,
+    ownerUsername,
+    visibility: sanitizeVisibility(sourcePayload.visibility),
+    publicAccess: sanitizePublicAccess(sourcePayload.publicAccess),
     createdAt: now,
     updatedAt: now
   };
+  const duplicateFile = projectFilePathFromId(duplicateId);
   fs.writeFileSync(duplicateFile, JSON.stringify(duplicatePayload, null, 2), 'utf8');
 
-  return res.json({ ok: true, projectName: duplicatedName });
+  return res.json({ ok: true, projectId: duplicateId, projectName: duplicatedName });
 });
 
-app.delete('/project/:name', requireAdmin, (req, res) => {
-  const projectName = sanitizeProjectName(req.params.name);
-  const projectFile = projectFilePathFromName(projectName);
-  if (!fs.existsSync(projectFile)) {
+app.delete('/project/:id', requireAuth, (req, res) => {
+  if (req.session.user?.role === 'viewer') {
+    return res.status(403).json({ error: 'viewer cannot modify projects' });
+  }
+
+  const projectId = sanitizeProjectId(req.params.id);
+  const entry = findProjectById(projectId);
+  if (!entry) {
     return res.status(404).json({ error: 'project not found' });
   }
-  fs.unlinkSync(projectFile);
+
+  if (!canManageProjectIdentity(req.session.user, entry.project)) {
+    return res.status(403).json({ error: 'forbidden' });
+  }
+
+  fs.unlinkSync(entry.filePath);
   return res.json({ ok: true });
 });
 
