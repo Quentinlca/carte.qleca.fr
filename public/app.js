@@ -10,8 +10,8 @@ const title=document.getElementById('title');
 const pointType=document.getElementById('pointType');
 const color=document.getElementById('color');
 const emoji=document.getElementById('emoji');
+const emojiPickerBtn=document.getElementById('emojiPickerBtn');
 const emojiPicker=document.getElementById('emojiPicker');
-const emojiPreview=document.getElementById('emojiPreview');
 const colorInputWrapper=document.getElementById('colorInputWrapper');
 const emojiInputWrapper=document.getElementById('emojiInputWrapper');
 const desc=document.getElementById('desc');
@@ -403,7 +403,7 @@ function togglePointTypeInput(){
 function setSelectedEmoji(value){
  const selected=value||'📍';
  emoji.value=selected;
- if(emojiPreview) emojiPreview.textContent=selected;
+ if(emojiPickerBtn) emojiPickerBtn.textContent=selected;
 }
 
 function toggleEmojiPicker(){
@@ -427,7 +427,7 @@ if(emojiPicker){
 document.addEventListener('click',event=>{
  if(!emojiPicker || pointType.value!=='emoji') return;
  const inPicker=emojiPicker.contains(event.target);
- const isButton=event.target.id==='emojiPickerBtn';
+ const isButton=event.target?.closest?.('#emojiPickerBtn');
  if(!inPicker && !isButton) closeEmojiPicker();
 });
 
