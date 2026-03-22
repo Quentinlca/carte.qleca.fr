@@ -99,6 +99,7 @@ let touchLastClientY=0;
 let lastTapTime=0;
 let lastTapX=0;
 let lastTapY=0;
+let forcingNativeBack=false;
 
 const MOBILE_DOUBLE_TAP_MS=320;
 const MOBILE_DOUBLE_TAP_DISTANCE=24;
@@ -275,6 +276,10 @@ function isMobileViewport(){
  return window.matchMedia('(max-width: 768px)').matches;
 }
 
+function isTextEntryTarget(target){
+ return !!target?.closest?.('input, textarea, [contenteditable="true"], [contenteditable=""]');
+}
+
 function pushMobileBackState(){
  if(!isMobileViewport()) return;
  history.pushState({menuOpen:true},'');
@@ -293,6 +298,18 @@ function closeTopOpenMenu(){
  if(toolbar.classList.contains('mobile-open')){ closeToolbarMenu(); return true; }
  return false;
 }
+
+document.addEventListener('contextmenu',event=>{
+ if(!isMobileViewport()) return;
+ if(isTextEntryTarget(event.target)) return;
+ event.preventDefault();
+});
+
+document.addEventListener('selectstart',event=>{
+ if(!isMobileViewport()) return;
+ if(isTextEntryTarget(event.target)) return;
+ event.preventDefault();
+});
 
 async function apiFetch(url,options={}){
  const response=await fetch(url,options);
@@ -466,7 +483,7 @@ container.addEventListener('touchend',e=>{
    const delta=now-lastTapTime;
    const distance=Math.hypot(touchLastClientX-lastTapX,touchLastClientY-lastTapY);
    if(delta<=MOBILE_DOUBLE_TAP_MS && distance<=MOBILE_DOUBLE_TAP_DISTANCE){
-    zoomAtClient(touchLastClientX,touchLastClientY,1.35);
+    zoomAtClient(touchLastClientX,touchLastClientY,1.8);
     lastTapTime=0;
    }else{
     lastTapTime=now;
@@ -1169,7 +1186,12 @@ window.addEventListener('keydown',e=>{
 });
 
 window.addEventListener('popstate',()=>{
- closeTopOpenMenu();
+ if(closeTopOpenMenu()) return;
+ if(!isMobileViewport()) return;
+ if(forcingNativeBack) return;
+ forcingNativeBack=true;
+ history.back();
+ setTimeout(()=>{ forcingNativeBack=false; },300);
 });
 
 async function saveProject(){

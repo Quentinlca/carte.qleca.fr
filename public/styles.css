@@ -62,6 +62,16 @@ body { margin:0; font-family:Arial; overflow:hidden; }
 #fullImage { max-width:92vw; max-height:92vh; object-fit:contain; }
 
 @media (pointer: coarse) {
+  * {
+    -webkit-touch-callout:none;
+    -webkit-user-select:none;
+    user-select:none;
+  }
+  input, textarea, [contenteditable="true"], [contenteditable=""] {
+    -webkit-touch-callout:default;
+    -webkit-user-select:text;
+    user-select:text;
+  }
   button, input, select, textarea { min-height:44px; font-size:16px; }
   #toolbar button, #projectSettingsBtn, #projectActions button { min-height:44px; }
   #plan-container { touch-action:none; }
