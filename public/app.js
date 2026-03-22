@@ -90,6 +90,20 @@ let isDragging=false, moved=false, startX,startY;
 let touchMode='none';
 let touchStartDistance=0;
 let touchStartScale=1;
+let longPressTimer=null;
+let longPressTriggered=false;
+let touchPanStartClientX=0;
+let touchPanStartClientY=0;
+let touchLastClientX=0;
+let touchLastClientY=0;
+let lastTapTime=0;
+let lastTapX=0;
+let lastTapY=0;
+
+const MOBILE_DOUBLE_TAP_MS=320;
+const MOBILE_DOUBLE_TAP_DISTANCE=24;
+const MOBILE_LONG_PRESS_MS=420;
+const MOBILE_MOVE_CANCEL_PX=10;
 
 function clamp(value,min,max){
  return Math.min(max,Math.max(min,value));
@@ -110,6 +124,32 @@ function touchCenter(first,second){
   x:(first.clientX+second.clientX)/2,
   y:(first.clientY+second.clientY)/2
  };
+}
+
+function clearLongPressTimer(){
+ if(longPressTimer){
+  clearTimeout(longPressTimer);
+  longPressTimer=null;
+ }
+}
+
+function zoomAtClient(clientX,clientY,factor){
+ const rect=container.getBoundingClientRect();
+ const cx=clientX-rect.left;
+ const cy=clientY-rect.top;
+ const nextScale=clamp(scale*factor,0.2,5);
+ const zoom=nextScale/scale;
+ originX=cx-(cx-originX)*zoom;
+ originY=cy-(cy-originY)*zoom;
+ scale=nextScale;
+ applyWrapperTransform();
+}
+
+function placePointAtClient(clientX,clientY){
+ if(!canEditCurrentProject()) return;
+ const rect=plan.getBoundingClientRect();
+ tempCoords={ x:(clientX-rect.left)/rect.width, y:(clientY-rect.top)/rect.height };
+ openForm();
 }
 
 function sanitizeProjectName(name){
@@ -222,11 +262,36 @@ if(usersPasswordToggleBtn && usersPasswordInput){
 
 function toggleToolbar(){
  if(!currentProjectId) return;
+ const willOpen=!toolbar.classList.contains('mobile-open');
  toolbar.classList.toggle('mobile-open');
+ if(willOpen) pushMobileBackState();
 }
 
 function closeToolbarMenu(){
  toolbar.classList.remove('mobile-open');
+}
+
+function isMobileViewport(){
+ return window.matchMedia('(max-width: 768px)').matches;
+}
+
+function pushMobileBackState(){
+ if(!isMobileViewport()) return;
+ history.pushState({menuOpen:true},'');
+}
+
+function closeTopOpenMenu(){
+ if(imageModal.style.display==='flex'){ closeFullImage(); return true; }
+ if(newProjectModal.style.display==='flex'){ closeNewProjectModal(); return true; }
+ if(renameProjectModal.style.display==='flex'){ closeRenameProject(); return true; }
+ if(deleteProjectModal.style.display==='flex'){ closeDeleteProjectConfirm(); return true; }
+ if(projectSettingsModal.style.display==='flex'){ closeProjectSettings(); return true; }
+ if(usersModal.style.display==='flex'){ closeUsersModal(); return true; }
+ if(formModal.style.display==='flex'){ closeForm(); return true; }
+ if(viewModal.style.display==='flex'){ closeView(); return true; }
+ if(projectListModal.style.display==='flex'){ closeProjectList(); return true; }
+ if(toolbar.classList.contains('mobile-open')){ closeToolbarMenu(); return true; }
+ return false;
 }
 
 async function apiFetch(url,options={}){
@@ -312,16 +377,34 @@ window.addEventListener('mouseup',()=>{
 });
 
 container.addEventListener('touchstart',e=>{
+ longPressTriggered=false;
  if(e.touches.length===1){
   const touch=e.touches[0];
   isDragging=true;
   touchMode='pan';
   moved=false;
+  longPressTriggered=false;
   startX=touch.clientX-originX;
   startY=touch.clientY-originY;
+  touchPanStartClientX=touch.clientX;
+  touchPanStartClientY=touch.clientY;
+  touchLastClientX=touch.clientX;
+  touchLastClientY=touch.clientY;
+
+  clearLongPressTimer();
+  if(canEditCurrentProject()){
+   longPressTimer=setTimeout(()=>{
+    if(touchMode==='pan' && !moved){
+      longPressTriggered=true;
+      isDragging=false;
+      placePointAtClient(touchLastClientX,touchLastClientY);
+    }
+   },MOBILE_LONG_PRESS_MS);
+  }
  }
 
  if(e.touches.length===2){
+  clearLongPressTimer();
   const first=e.touches[0];
   const second=e.touches[1];
   isDragging=false;
@@ -336,6 +419,12 @@ container.addEventListener('touchmove',e=>{
  if(touchMode==='pan' && e.touches.length===1){
   e.preventDefault();
   const touch=e.touches[0];
+  touchLastClientX=touch.clientX;
+  touchLastClientY=touch.clientY;
+  const movedDistance=Math.hypot(touch.clientX-touchPanStartClientX,touch.clientY-touchPanStartClientY);
+  if(movedDistance>MOBILE_MOVE_CANCEL_PX){
+   clearLongPressTimer();
+  }
   if(originX!==touch.clientX-startX || originY!==touch.clientY-startY) moved=true;
   originX=touch.clientX-startX;
   originY=touch.clientY-startY;
@@ -362,8 +451,31 @@ container.addEventListener('touchmove',e=>{
 },{passive:false});
 
 container.addEventListener('touchend',e=>{
+ clearLongPressTimer();
+
  if(e.touches.length===0){
   isDragging=false;
+  const changed=e.changedTouches && e.changedTouches[0] ? e.changedTouches[0] : null;
+  if(changed){
+   touchLastClientX=changed.clientX;
+   touchLastClientY=changed.clientY;
+  }
+
+  if(touchMode==='pan' && !moved && !longPressTriggered){
+   const now=Date.now();
+   const delta=now-lastTapTime;
+   const distance=Math.hypot(touchLastClientX-lastTapX,touchLastClientY-lastTapY);
+   if(delta<=MOBILE_DOUBLE_TAP_MS && distance<=MOBILE_DOUBLE_TAP_DISTANCE){
+    zoomAtClient(touchLastClientX,touchLastClientY,1.35);
+    lastTapTime=0;
+   }else{
+    lastTapTime=now;
+    lastTapX=touchLastClientX;
+    lastTapY=touchLastClientY;
+   }
+  }
+
+  longPressTriggered=false;
   touchMode='none';
   return;
  }
@@ -377,11 +489,14 @@ container.addEventListener('touchend',e=>{
 });
 
 container.addEventListener('touchcancel',()=>{
+ clearLongPressTimer();
  isDragging=false;
+ longPressTriggered=false;
  touchMode='none';
 });
 
 container.addEventListener('click',e=>{
+ if(isMobileViewport()) return;
  if(moved) return;
  if(!canEditCurrentProject()) return;
  const rect=plan.getBoundingClientRect();
@@ -434,6 +549,7 @@ document.addEventListener('click',event=>{
 function openForm(h=null){
  if(!canEditCurrentProject()) return;
  formModal.style.display='flex';
+ pushMobileBackState();
  if(h){
   editingId=h.id;
   title.value=h.title;
@@ -538,13 +654,14 @@ async function openView(h){
   viewGallery.appendChild(img);
  });
  viewModal.style.display='flex';
+ pushMobileBackState();
 }
 
 function closeView(){ viewModal.style.display='none'; }
 function showFullImage(src){ fullImage.src=src; imageModal.style.display='flex'; }
 function closeFullImage(){ imageModal.style.display='none'; fullImage.src=''; }
 function editHotspot(){ if(!canEditCurrentProject()) return; closeView(); openForm(currentView); }
-function deleteHotspotConfirm(){ if(!canEditCurrentProject()) return; deleteHotspotModal.style.display='flex'; }
+function deleteHotspotConfirm(){ if(!canEditCurrentProject()) return; deleteHotspotModal.style.display='flex'; pushMobileBackState(); }
 function confirmDeleteHotspot(){ if(!canEditCurrentProject()) return; hotspots=hotspots.filter(h=>h.id!==currentView.id); closeDeleteHotspotConfirm(); closeView(); refresh(); saveProject(); }
 function closeDeleteHotspotConfirm(){ deleteHotspotModal.style.display='none'; }
 
@@ -568,6 +685,7 @@ function openProjectSettings(){
  settingsPointCount.textContent=String(hotspots.length);
  updateModeUi();
  projectSettingsModal.style.display='flex';
+ pushMobileBackState();
 }
 
 function closeProjectSettings(){ projectSettingsModal.style.display='none'; }
@@ -601,9 +719,10 @@ function openRenameProject(){
  renameProjectInput.value=currentProjectName;
  renameError.textContent='';
  renameProjectModal.style.display='flex';
+ pushMobileBackState();
 }
 function closeRenameProject(){ renameProjectModal.style.display='none'; }
-function openDeleteProjectConfirm(){ if(canManageCurrentProjectIdentity()) deleteProjectModal.style.display='flex'; }
+function openDeleteProjectConfirm(){ if(canManageCurrentProjectIdentity()){ deleteProjectModal.style.display='flex'; pushMobileBackState(); } }
 function closeDeleteProjectConfirm(){ deleteProjectModal.style.display='none'; }
 function closeProjectList(){ projectListModal.style.display='none'; }
 
@@ -616,6 +735,7 @@ function openNewProjectModal(){
  newProjectError.textContent='';
  updateNewProjectAccessUi();
  newProjectModal.style.display='flex';
+ pushMobileBackState();
 }
 
 function closeNewProjectModal(){ newProjectModal.style.display='none'; }
@@ -837,6 +957,7 @@ async function openProjectList(){
  myProjectList.textContent='Chargement...';
  communityProjectList.textContent='Chargement...';
  projectListModal.style.display='flex';
+ pushMobileBackState();
  try{
   const response=await apiFetch('/projects');
   const data=await response.json();
@@ -981,6 +1102,7 @@ async function openProjectList(){
    usersPasswordInput.value='';
    usersRoleInput.value='viewer';
    usersModal.style.display='flex';
+  pushMobileBackState();
    await refreshUsersList();
   }
 
@@ -1043,15 +1165,11 @@ async function openProjectList(){
 
 window.addEventListener('keydown',e=>{
  if(e.key!=='Escape') return;
- if(imageModal.style.display==='flex'){ closeFullImage(); return; }
- if(newProjectModal.style.display==='flex'){ closeNewProjectModal(); return; }
- if(renameProjectModal.style.display==='flex'){ closeRenameProject(); return; }
- if(deleteProjectModal.style.display==='flex'){ closeDeleteProjectConfirm(); return; }
- if(projectSettingsModal.style.display==='flex'){ closeProjectSettings(); return; }
- if(usersModal.style.display==='flex'){ closeUsersModal(); return; }
- if(formModal.style.display==='flex'){ closeForm(); return; }
- if(viewModal.style.display==='flex'){ closeView(); return; }
- if(projectListModal.style.display==='flex'){ closeProjectList(); }
+ closeTopOpenMenu();
+});
+
+window.addEventListener('popstate',()=>{
+ closeTopOpenMenu();
 });
 
 async function saveProject(){
