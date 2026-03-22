@@ -13,7 +13,8 @@ const rootDir = __dirname;
 const publicDir = path.join(rootDir, 'public');
 const uploadsDir = path.join(rootDir, 'uploads');
 const dataDir = path.join(rootDir, 'saves');
-const usersFile = path.join(dataDir, 'users.json');
+const usersDir = path.join(rootDir, 'data');
+const usersFile = path.join(usersDir, 'users.json');
 const imageSigningSecret = process.env.IMAGE_SIGNING_SECRET || 'change-me-in-production';
 const sessionSecret = process.env.SESSION_SECRET || 'change-this-session-secret';
 
@@ -103,6 +104,7 @@ async function verifyPassword(user, plainPassword) {
 
 fs.mkdirSync(uploadsDir, { recursive: true });
 fs.mkdirSync(dataDir, { recursive: true });
+fs.mkdirSync(usersDir, { recursive: true });
 
 const users = readUsersStore();
 if (bootstrapUsersFromEnv(users)) {

@@ -85,6 +85,7 @@ function updateModeUi(){
  modeLabel.textContent=role;
  projectActions.style.display=role==='admin'?'flex':'none';
  usersAdminBtn.style.display=role==='admin'?'inline-block':'none';
+ newProjectBtn.style.display=role==='admin'?'inline-block':'none';
 }
 
 function updateProjectHeader(){
