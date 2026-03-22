@@ -614,8 +614,8 @@ async function openProjectList(){
     row.appendChild(name);
 
     const roleSelect=document.createElement('select');
-    roleSelect.value=user.role;
     roleSelect.innerHTML='<option value="viewer">viewer</option><option value="admin">admin</option>';
+    roleSelect.value=user.role;
     row.appendChild(roleSelect);
 
     const passwordInput=document.createElement('input');
