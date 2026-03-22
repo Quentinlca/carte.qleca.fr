@@ -278,7 +278,11 @@ function userOwnsProject(user, project) {
 }
 
 function canManageProjectIdentity(user, project) {
-  if (user?.role === 'viewer') {
+  const role = sanitizeRole(user?.role);
+  if (role === 'admin') {
+    return true;
+  }
+  if (role === 'viewer') {
     return false;
   }
   return userOwnsProject(user, project);
@@ -314,6 +318,10 @@ function hasPublicNameConflict(allProjects, projectName, excludeProjectId = '') 
 }
 
 function canViewProject(user, project) {
+  if (sanitizeRole(user?.role) === 'admin') {
+    return true;
+  }
+
   const username = normalizeUsername(user?.username);
   const owner = normalizeUsername(project?.ownerUsername);
   const visibility = sanitizeVisibility(project?.visibility);
@@ -324,7 +332,12 @@ function canViewProject(user, project) {
 }
 
 function canEditProject(user, project) {
-  if (user?.role === 'viewer') {
+  const role = sanitizeRole(user?.role);
+  if (role === 'admin') {
+    return true;
+  }
+
+  if (role === 'viewer') {
     return false;
   }
 
@@ -678,6 +691,7 @@ app.post('/project/create', requireAuth, (req, res) => {
 
 app.get('/projects', requireAuth, (req, res) => {
   const username = normalizeUsername(req.session.user?.username);
+  const isAdmin = sanitizeRole(req.session.user?.role) === 'admin';
   const records = listAllProjects()
     .map(item => item.project)
     .filter(project => canViewProject(req.session.user, project))
@@ -689,7 +703,7 @@ app.get('/projects', requireAuth, (req, res) => {
 
   const communityProjects = records
     .filter(project => normalizeUsername(project.ownerUsername) !== username)
-    .filter(project => project.visibility === 'public')
+    .filter(project => isAdmin || project.visibility === 'public')
     .sort((a, b) => a.projectName.localeCompare(b.projectName));
 
   return res.json({ myProjects, communityProjects });

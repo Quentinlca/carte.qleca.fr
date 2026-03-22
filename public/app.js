@@ -25,6 +25,7 @@ const imageModal=document.getElementById('imageModal');
 const fullImage=document.getElementById('fullImage');
 
 const projectNameText=document.getElementById('projectNameText');
+const projectAccessBadge=document.getElementById('projectAccessBadge');
 const saveStatus=document.getElementById('saveStatus');
 const projectBar=document.getElementById('project-bar');
 const projectSettingsModal=document.getElementById('projectSettingsModal');
@@ -106,6 +107,7 @@ function sanitizePublicAccess(value){
 }
 
 function canEditProjectMeta(project={}){
+ if(role==='admin') return true;
  if(role==='viewer') return false;
  const owner=(project.ownerUsername||'').toLowerCase();
  const visibility=sanitizeVisibility(project.visibility);
@@ -124,6 +126,7 @@ function canEditCurrentProject(){
 }
 
 function canManageProjectIdentityMeta(project={}){
+ if(role==='admin') return true;
  if(role==='viewer') return false;
  return (project.ownerUsername||'').toLowerCase()===currentUsername;
 }
@@ -169,6 +172,8 @@ function updateModeUi(){
 
 function updateProjectHeader(){
  projectNameText.textContent=currentProjectName;
+ const accessLabel=currentProjectVisibility==='private'?'private':sanitizePublicAccess(currentProjectPublicAccess);
+ projectAccessBadge.textContent=accessLabel;
 }
 
 function updateProjectBarVisibility(){
@@ -735,8 +740,9 @@ async function openProjectList(){
 
     const loadBtn=document.createElement('button');
     loadBtn.className='project-load-btn';
+    const projectAccessibility=sanitizeVisibility(project.visibility)==='private'?'private':sanitizePublicAccess(project.publicAccess);
     const accessLabel=isCommunity
-      ? `${project.ownerUsername||'unknown'} • ${sanitizePublicAccess(project.publicAccess)}`
+      ? `${project.ownerUsername||'unknown'} • ${projectAccessibility}`
       : getMyProjectAccessibility(project);
     loadBtn.textContent=`${name} (${accessLabel})`;
     loadBtn.onclick=()=>loadProjectById(project.projectId).catch(()=>setSaveStatus('Erreur chargement projet',true));
