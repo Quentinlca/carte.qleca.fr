@@ -85,6 +85,30 @@ let currentUsername='';
 
 let scale=1, originX=0, originY=0;
 let isDragging=false, moved=false, startX,startY;
+let touchMode='none';
+let touchStartDistance=0;
+let touchStartScale=1;
+
+function clamp(value,min,max){
+ return Math.min(max,Math.max(min,value));
+}
+
+function applyWrapperTransform(){
+ wrapper.style.transform=`translate(${originX}px,${originY}px) scale(${scale})`;
+}
+
+function touchDistance(first,second){
+ const dx=second.clientX-first.clientX;
+ const dy=second.clientY-first.clientY;
+ return Math.hypot(dx,dy);
+}
+
+function touchCenter(first,second){
+ return {
+  x:(first.clientX+second.clientX)/2,
+  y:(first.clientY+second.clientY)/2
+ };
+}
 
 function sanitizeProjectName(name){
  const cleaned=(name||'').trim().replace(/\.json$/i,'').replace(/[<>:"/\\|?*\x00-\x1F]/g,'_').slice(0,120).trim();
@@ -239,7 +263,7 @@ container.addEventListener('wheel',e=>{
  originY=mouseY-(mouseY-originY)*zoom;
  scale*=zoom;
 
- wrapper.style.transform=`translate(${originX}px,${originY}px) scale(${scale})`;
+ applyWrapperTransform();
 });
 
 container.addEventListener('mousedown',e=>{
@@ -254,12 +278,82 @@ window.addEventListener('mousemove',e=>{
  if(!isDragging) return;
  if (originX!==e.clientX-startX || originY!==e.clientY-startY) moved=true;
  originX=e.clientX-startX; originY=e.clientY-startY;
- wrapper.style.transform=`translate(${originX}px,${originY}px) scale(${scale})`;
+ applyWrapperTransform();
 });
 
 window.addEventListener('mouseup',()=>{
  isDragging=false;
  container.style.cursor='default';
+});
+
+container.addEventListener('touchstart',e=>{
+ if(e.touches.length===1){
+  const touch=e.touches[0];
+  isDragging=true;
+  touchMode='pan';
+  moved=false;
+  startX=touch.clientX-originX;
+  startY=touch.clientY-originY;
+ }
+
+ if(e.touches.length===2){
+  const first=e.touches[0];
+  const second=e.touches[1];
+  isDragging=false;
+  touchMode='pinch';
+  moved=true;
+  touchStartDistance=touchDistance(first,second);
+  touchStartScale=scale;
+ }
+},{passive:false});
+
+container.addEventListener('touchmove',e=>{
+ if(touchMode==='pan' && e.touches.length===1){
+  e.preventDefault();
+  const touch=e.touches[0];
+  if(originX!==touch.clientX-startX || originY!==touch.clientY-startY) moved=true;
+  originX=touch.clientX-startX;
+  originY=touch.clientY-startY;
+  applyWrapperTransform();
+  return;
+ }
+
+ if(touchMode==='pinch' && e.touches.length===2){
+  e.preventDefault();
+  const first=e.touches[0];
+  const second=e.touches[1];
+  const center=touchCenter(first,second);
+  const rect=container.getBoundingClientRect();
+  const cx=center.x-rect.left;
+  const cy=center.y-rect.top;
+  const currentDistance=touchDistance(first,second);
+  const nextScale=clamp(touchStartScale*(currentDistance/touchStartDistance),0.2,5);
+  const zoom=nextScale/scale;
+  originX=cx-(cx-originX)*zoom;
+  originY=cy-(cy-originY)*zoom;
+  scale=nextScale;
+  applyWrapperTransform();
+ }
+},{passive:false});
+
+container.addEventListener('touchend',e=>{
+ if(e.touches.length===0){
+  isDragging=false;
+  touchMode='none';
+  return;
+ }
+
+ if(e.touches.length===1){
+  const touch=e.touches[0];
+  touchMode='pan';
+  startX=touch.clientX-originX;
+  startY=touch.clientY-originY;
+ }
+});
+
+container.addEventListener('touchcancel',()=>{
+ isDragging=false;
+ touchMode='none';
 });
 
 container.addEventListener('click',e=>{

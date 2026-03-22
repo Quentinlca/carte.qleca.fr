@@ -56,3 +56,28 @@ body { margin:0; font-family:Arial; overflow:hidden; }
 .user-row input,.user-row select,#usersCreateBox input,#usersCreateBox select { padding:6px 8px; }
 #imageModal { z-index:2000; }
 #fullImage { max-width:92vw; max-height:92vh; object-fit:contain; }
+
+@media (pointer: coarse) {
+  button, input, select, textarea { min-height:44px; font-size:16px; }
+  #toolbar button, #projectSettingsBtn, #projectActions button { min-height:44px; }
+  #plan-container { touch-action:none; }
+  .hotspot-color { width:16px; height:16px; }
+  .hotspot-emoji { width:34px; height:34px; font-size:24px; }
+}
+
+@media (max-width: 768px) {
+  #project-bar { flex-wrap:wrap; gap:8px; }
+  #projectTitleWrap { width:100%; }
+  #projectAccessBadge { margin-left:0; }
+  #saveStatus { width:100%; }
+
+  #toolbar { display:flex; flex-wrap:wrap; gap:8px; }
+  #toolbar button,label { margin-right:0; }
+
+  #plan-container { height:calc(100vh - 146px); }
+
+  .modal-content { width:96%; max-height:90vh; overflow:auto; }
+  #projectListColumns { grid-template-columns:1fr; }
+  #usersCreateBox { grid-template-columns:1fr; }
+  .user-row { grid-template-columns:1fr; }
+}
