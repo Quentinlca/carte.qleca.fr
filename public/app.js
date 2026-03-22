@@ -164,7 +164,7 @@ function setSaveStatus(message,isError=false){
 }
 
 function updateModeUi(){
- modeLabel.textContent=role;
+ modeLabel.textContent=currentUsername?`${currentUsername} (${role})`:`- (${role})`;
  projectActions.style.display=canEditCurrentProject()?'flex':'none';
  usersAdminBtn.style.display=role==='admin'?'inline-block':'none';
  newProjectBtn.style.display=role!=='viewer'?'inline-block':'none';
