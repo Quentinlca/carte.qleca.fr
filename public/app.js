@@ -639,24 +639,21 @@ container.addEventListener('pointermove',e=>{
   const dotA=dotProduct(movementA,pinchVectorAB);
   const dotB=dotProduct(movementB,pinchVectorAB);
   
-  // Symmetric zoom center: the finger that moves less (or not at all) is the pivot point
+  // Continuous symmetric pivot: avoids jumps when the "less moved" finger changes.
   const absDotA=Math.abs(dotA);
   const absDotB=Math.abs(dotB);
-  
+  const sumAbs=absDotA+absDotB;
+
   let zoomOriginX,zoomOriginY;
-  if(absDotA<absDotB){
-   // A moved less along AB, so zoom from A
-   zoomOriginX=a.x;
-   zoomOriginY=a.y;
-  } else if(absDotB<absDotA){
-   // B moved less along AB, so zoom from B
-   zoomOriginX=b.x;
-   zoomOriginY=b.y;
-  } else {
-   // Both moved equally, use midpoint
+  if(sumAbs<0.1){
    const midpoint=centerBetweenPoints(a,b);
    zoomOriginX=midpoint.x;
    zoomOriginY=midpoint.y;
+  } else {
+   // t in [0,1] on segment AB: near A when A moves less, near B when B moves less.
+   const t=absDotA/sumAbs;
+   zoomOriginX=a.x+(b.x-a.x)*t;
+   zoomOriginY=a.y+(b.y-a.y)*t;
   }
   
   // Calculate zoom factor from distance ratio
