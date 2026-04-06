@@ -566,6 +566,18 @@ container.addEventListener('pointerdown',e=>{
    return;
   }
 
+  // Initialize pan for single finger
+  e.preventDefault();
+  activePointerId=e.pointerId;
+  isDragging=true;
+  moved=false;
+  startX=e.clientX-originX;
+  startY=e.clientY-originY;
+  lastPanSampleAt=performance.now();
+  panVelocityX=0;
+  panVelocityY=0;
+  container.style.cursor='grabbing';
+
   if(canEditCurrentProject()){
    longPressTriggered=false;
    longPressPointerId=e.pointerId;
