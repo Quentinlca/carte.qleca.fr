@@ -1,169 +1,116 @@
 # Interactive Plan Builder PRO+
 
-A web-based interactive map with hotspots, zooming, panning, and project management.
+Web app for collaborative interactive plans with hotspots, image galleries, and project permissions.
 
 ## Quick Start
 
 ```bash
-# Install dependencies
 npm install
-
-# Start the server
 npm start
 ```
 
-Then open http://localhost:3000 in your browser.
+Open: http://localhost:3000
 
-## Authentication
+- Login page: `/login`
+- App page: `/` (requires authentication)
 
-The app now uses server-side sessions with a real login page.
+## Authentication and Roles
 
-- Login URL: `http://localhost:3000/login`
-- Main app URL: `http://localhost:3000/` (requires login)
+The app uses server-side sessions via `express-session`.
 
-Users are stored in `saves/users.json` with one bcrypt hash per user password.
+Supported roles:
+- `viewer`: can browse projects and view hotspots
+- `editor`: can create/update hotspots and edit projects based on project access rules
+- `admin`: full access, including user administration
+
+Users are stored in `data/users.json`.
+
+Create users from CLI:
+
+```bash
+npm run create-user -- alice StrongPass123 viewer
+npm run create-user -- bob StrongPass123 editor
+npm run create-user -- carol StrongPass123 admin
+```
+
+You can also bootstrap default users from environment variables:
 
 ```bash
 ADMIN_PASSWORD_HASH=$2a$...
 VIEWER_PASSWORD_HASH=$2a$...
 SESSION_SECRET=replace_with_a_long_random_secret
+IMAGE_SIGNING_SECRET=replace_with_a_long_random_secret
 ```
 
-You can bootstrap default `admin` / `viewer` users from env hashes, but the recommended workflow is creating users directly:
+## Project Access Model
 
-```bash
-npm run create-user -- alice StrongPass123 viewer
-npm run create-user -- bob StrongPass123 admin
-```
+Each project stores:
+- `ownerUsername`
+- `visibility`: `private` or `public`
+- `publicAccess`: `view_only` or `editable`
 
-Admins can also manage users directly in the app from the `👤 Users` modal (create/list/edit/delete).
-
-Create users via API (admin session required):
-
-```http
-POST /auth/users
-Content-Type: application/json
-
-{
-  "username": "charlie",
-  "password": "StrongPass123",
-  "role": "viewer"
-}
-```
-
-Generate a bcrypt hash:
-
-```bash
-node -e "console.log(require('bcryptjs').hashSync('your_password', 12))"
-```
+Rules summary:
+- `admin`: can view/edit/manage all projects
+- `viewer`: read-only everywhere
+- `editor`:
+  - private project: only owner can view/edit
+  - public + view_only: only owner can edit
+  - public + editable: any editor can edit
 
 ## Project Structure
 
-```
-CarteInteractive/
-├── server.js              # Express backend (uploads, save/load)
-├── package.json           # Node.js dependencies & scripts
-├── public/                # Frontend assets
-│   ├── index.html         # Main page
-│   ├── app.js             # Client-side logic
-│   └── styles.css         # Styling
-├── uploads/               # Uploaded image files (generated at runtime)
-├── saves/                 # Saved projects + users store (generated at runtime)
-│   └── project.json       # Current project data
-└── README.md              # This file
-```
-
-## Features
-
-- **Pan & Zoom**: Click-drag to pan, scroll to zoom (centered on cursor)
-- **Hotspots**: Click to create hotspots on the plan image
-- **Admin Mode**: Create, edit, delete hotspots; upload images per hotspot
-- **Viewer Mode**: View hotspot details and gallery
-- **Persistence**: Save/load projects via JSON
-
-## API Routes
-
-### `POST /upload`
-Upload an image file for a hotspot.
-
-**Request:**
-```
-Content-Type: multipart/form-data
-file: <binary file>
+```text
+carte.qleca.fr/
+├── server.js
+├── package.json
+├── public/
+│   ├── index.html
+│   ├── app.js
+│   ├── login.html
+│   └── styles.css
+├── data/
+│   └── users.json                # created at runtime
+├── saves/
+│   └── <projectId>.json          # created at runtime
+├── uploads/                      # created at runtime
+└── scripts/
+    └── create-user.js
 ```
 
-**Response:**
-```
-/uploads/<filename>
-```
+## Main API Routes
 
-### `POST /save`
-Save the current project (plan image + all hotspots).
+Authentication:
+- `POST /auth/login`
+- `POST /auth/logout`
+- `GET /auth/me`
 
-**Request:**
-```json
-{
-  "image": "data:image/png;base64,...",
-  "hotspots": [
-    {
-      "id": 1234567890,
-      "x": 0.5,
-      "y": 0.3,
-      "title": "Room A",
-      "color": "#ff0000",
-      "desc": "Description",
-      "images": ["/uploads/xxxxx", "/uploads/yyyyy"]
-    }
-  ]
-}
-```
+User management (admin only):
+- `GET /auth/users`
+- `POST /auth/users`
+- `PATCH /auth/users/:username`
+- `DELETE /auth/users/:username`
 
-**Response:**
-```
-ok
-```
+Projects:
+- `POST /project/create`
+- `GET /projects` (returns `{ myProjects, communityProjects }`)
+- `GET /project/:id`
+- `POST /save` (update existing project content)
+- `POST /project/rename`
+- `POST /project/access`
+- `POST /project/duplicate`
+- `DELETE /project/:id`
 
-Saved to `data/project.json`.
-
-### `GET /project`
-Retrieve the saved project JSON.
-
-**Response:**
-```json
-{
-  "image": "data:image/png;base64,...",
-  "hotspots": [...]
-}
-```
-
-## Usage
-
-### As Admin
-1. Login with admin credentials
-2. Click the plan to create a hotspot
-3. Fill in title, point type, description, and upload images
-4. Click "OK" to save (autosave is enabled)
-
-### As Viewer
-1. Login with viewer credentials
-2. Click any hotspot to view details and gallery
-3. Zoom/pan as needed
-
-### Load a Saved Project
-1. Click "📂 JSON" and select a previously saved `project.json` file
-2. The plan and hotspots will reload
-
-## Server Configuration
-
-Default port: **3000** (configurable via `PORT` env variable)
-
-```bash
-# Custom port
-PORT=8080 npm start
-```
+Images:
+- `POST /upload` (editor/admin)
+- `GET /image/:filename?sig=...` (signed private access)
+- `GET /image-url?src=...` (maps stored image source to signed URL)
 
 ## Notes
 
-- Images uploaded via hotspots are stored in `uploads/` folder
-- Base64 plan images are embedded in the saved JSON (no separate file)
-- All hotspot metadata (title, color, description) is stored in `data/project.json`
+- Background plan image is stored as Data URL in each project file.
+- Hotspot images are stored in `uploads/` and accessed through signed URLs.
+- Default port: `3000` (override with `PORT`).
+
+```bash
+PORT=8080 npm start
+```

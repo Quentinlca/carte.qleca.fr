@@ -3,7 +3,7 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 
 const rootDir = path.join(__dirname, '..');
-const dataDir = path.join(rootDir, 'saves');
+const dataDir = path.join(rootDir, 'data');
 const usersFile = path.join(dataDir, 'users.json');
 
 function normalizeUsername(value) {
@@ -11,13 +11,19 @@ function normalizeUsername(value) {
 }
 
 function printUsage() {
-  console.log('Usage: npm run create-user -- <username> <password> <admin|viewer>');
+  console.log('Usage: npm run create-user -- <username> <password> <admin|editor|viewer>');
 }
 
 async function main() {
   const [usernameArg, password, roleArg] = process.argv.slice(2);
   const username = normalizeUsername(usernameArg);
-  const role = roleArg === 'admin' ? 'admin' : roleArg === 'viewer' ? 'viewer' : null;
+  const role = roleArg === 'admin'
+    ? 'admin'
+    : roleArg === 'editor'
+      ? 'editor'
+      : roleArg === 'viewer'
+        ? 'viewer'
+        : null;
 
   if (!/^[a-z0-9_.-]{3,40}$/.test(username) || !password || !role) {
     printUsage();
