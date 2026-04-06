@@ -7,6 +7,7 @@ body.booting #plan-container {
 #project-bar { position:relative; z-index:1001; background:#111; color:#fff; padding:8px 10px; display:flex; align-items:center; gap:12px; }
 #projectTitleWrap { display:flex; align-items:center; gap:8px; }
 #projectNameText { font-weight:600; }
+#resetZoomBtn { background:transparent; border:1px solid #777; color:#fff; border-radius:6px; cursor:pointer; padding:2px 6px; }
 #projectSettingsBtn { background:transparent; border:1px solid #777; color:#fff; border-radius:6px; cursor:pointer; padding:2px 6px; }
 #projectAccessBadge { margin-left:auto; font-size:12px; padding:3px 8px; border-radius:999px; border:1px solid #666; background:#1b1b1b; color:#ddd; text-transform:lowercase; }
 #saveStatus { font-size:13px; opacity:0.9; }

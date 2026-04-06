@@ -29,6 +29,7 @@ const loadingMessage=document.getElementById('loadingMessage');
 const projectNameText=document.getElementById('projectNameText');
 const projectAccessBadge=document.getElementById('projectAccessBadge');
 const projectSettingsBtn=document.getElementById('projectSettingsBtn');
+const resetZoomBtn=document.getElementById('resetZoomBtn');
 const saveStatus=document.getElementById('saveStatus');
 const projectBar=document.getElementById('project-bar');
 const projectSettingsModal=document.getElementById('projectSettingsModal');
@@ -246,6 +247,11 @@ function centerPlanInViewport(){
  applyViewportTransform();
 }
 
+function resetZoom(){
+ stopInertiaPan();
+ scheduleCenterPlan();
+}
+
 function scheduleCenterPlan(){
  shouldRecenterOnResize=true;
  if(!plan.src){
@@ -360,6 +366,9 @@ function updateProjectHeader(){
  projectAccessBadge.textContent=accessLabel;
  projectAccessBadge.style.display=hasProject?'inline-block':'none';
  projectSettingsBtn.style.display=hasProject?'inline-block':'none';
+ if(resetZoomBtn){
+  resetZoomBtn.disabled=!hasProject || !plan.src;
+ }
 }
 
 function updateProjectBarVisibility(){
@@ -504,16 +513,27 @@ container.addEventListener('pointerdown',e=>{
  if(e.pointerType==='touch'){
   longPressTriggered=false;
   activeTouchPoints.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(activeTouchPoints.size===1){
+   moved=false;
+  }
+  if(hotspotTarget){
+   return;
+  }
+
+  shouldRecenterOnResize=false;
+  stopInertiaPan();
+  if(!container.hasPointerCapture(e.pointerId)){
+   container.setPointerCapture(e.pointerId);
+  }
+
   if(activeTouchPoints.size>=2){
-   shouldRecenterOnResize=false;
-   stopInertiaPan();
    cancelLongPress();
    beginPinchIfPossible();
    moved=true;
    return;
   }
 
-  if(!hotspotTarget && canEditCurrentProject()){
+  if(canEditCurrentProject()){
    longPressTriggered=false;
    longPressPointerId=e.pointerId;
    longPressStartX=e.clientX;
@@ -523,16 +543,10 @@ container.addEventListener('pointerdown',e=>{
     if(longPressPointerId!==e.pointerId) return;
     longPressTriggered=true;
     cancelLongPress();
-    isDragging=false;
-    activePointerId=null;
-    container.style.cursor='default';
     tryOpenCreatePointAt(e.clientX,e.clientY);
    },520);
   }
-
-  if(!hotspotTarget && !container.hasPointerCapture(e.pointerId)){
-   container.setPointerCapture(e.pointerId);
-  }
+  return;
  }
 
  if(hotspotTarget){
@@ -619,7 +633,39 @@ function endPointerPan(e){
   if(activeTouchPoints.size<2){
    pinchStartDistance=0;
   }
+  if(activeTouchPoints.size===0){
+   moved=false;
+  }
+   const touchMoveWasSmall=!moved && !longPressTriggered;
+   const wasLongPress=longPressTriggered;
+   cancelLongPress();
+
+   if(e.pointerId===activePointerId){
+    isDragging=false;
+    activePointerId=null;
+   }
+
+   if(container.hasPointerCapture(e.pointerId)){
+    container.releasePointerCapture(e.pointerId);
+   }
+
+   if(touchMoveWasSmall && !wasLongPress){
+    const now=Date.now();
+    const pt=containerPointFromClient(e.clientX,e.clientY);
+    const isDoubleTap=(now-lastTapAt)<300 && Math.hypot(pt.x-lastTapX,pt.y-lastTapY)<28;
+    if(isDoubleTap){
+     shouldRecenterOnResize=false;
+     applyZoomAt(pt.x,pt.y,1.5);
+     lastTapAt=0;
+    }else{
+     lastTapAt=now;
+     lastTapX=pt.x;
+     lastTapY=pt.y;
+    }
+   }
+   return;
  }
+
  cancelLongPress();
 
  if(e.pointerId!==activePointerId) return;
@@ -633,23 +679,8 @@ function endPointerPan(e){
   container.releasePointerCapture(e.pointerId);
  }
 
- if(wasDragging && moved && pointerType==='touch'){
+ if(wasDragging && moved && pointerType==='mouse'){
   startInertiaPan();
- }
-
- if(pointerType==='touch' && !moved && !longPressTriggered){
-  const now=Date.now();
-  const pt=containerPointFromClient(e.clientX,e.clientY);
-  const isDoubleTap=(now-lastTapAt)<300 && Math.hypot(pt.x-lastTapX,pt.y-lastTapY)<28;
-  if(isDoubleTap){
-   shouldRecenterOnResize=false;
-   applyZoomAt(pt.x,pt.y,1.5);
-   lastTapAt=0;
-  }else{
-   lastTapAt=now;
-   lastTapX=pt.x;
-   lastTapY=pt.y;
-  }
  }
 }
 
