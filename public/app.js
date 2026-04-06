@@ -61,7 +61,7 @@ const newProjectImageInput=document.getElementById('newProjectImage');
 const newProjectError=document.getElementById('newProjectError');
 const deleteHotspotModal=document.getElementById('deleteHotspotModal');
 const usersAdminBtn=document.getElementById('usersAdminBtn');
-const newProjectBtn=document.getElementById('newProjectBtn');
+const newProjectFromListBtn=document.getElementById('newProjectFromListBtn');
 const usersModal=document.getElementById('usersModal');
 const usersList=document.getElementById('usersList');
 const usersNameInput=document.getElementById('usersNameInput');
@@ -344,7 +344,9 @@ function updateModeUi(){
  modeLabel.textContent=currentUsername?`${currentUsername} (${role})`:`- (${role})`;
  projectActions.style.display=canEditCurrentProject()?'flex':'none';
  usersAdminBtn.style.display=role==='admin'?'inline-block':'none';
- newProjectBtn.style.display=role!=='viewer'?'inline-block':'none';
+ if(newProjectFromListBtn){
+  newProjectFromListBtn.style.display=role!=='viewer'?'inline-block':'none';
+ }
 }
 
 function updateProjectHeader(){
@@ -355,10 +357,7 @@ function updateProjectHeader(){
 
 function updateProjectBarVisibility(){
  projectBar.style.display=currentProjectId?'flex':'none';
- toolbar.classList.toggle('no-project',!currentProjectId);
- if(currentProjectId){
-  toolbar.classList.remove('mobile-open');
- }
+ closeToolbarMenu();
 }
 
 function togglePasswordVisibility(input,button){
@@ -373,13 +372,13 @@ if(usersPasswordToggleBtn && usersPasswordInput){
 
 function toggleToolbar(){
  if(!currentProjectId) return;
- const willOpen=!toolbar.classList.contains('mobile-open');
- toolbar.classList.toggle('mobile-open');
+ const willOpen=!toolbar.classList.contains('open');
+ toolbar.classList.toggle('open');
  if(willOpen) pushMobileBackState();
 }
 
 function closeToolbarMenu(){
- toolbar.classList.remove('mobile-open');
+ toolbar.classList.remove('open');
 }
 
 function isMobileViewport(){
@@ -405,9 +404,15 @@ function closeTopOpenMenu(){
  if(formModal.style.display==='flex'){ closeForm(); return true; }
  if(viewModal.style.display==='flex'){ closeView(); return true; }
  if(projectListModal.style.display==='flex'){ closeProjectList(); return true; }
- if(toolbar.classList.contains('mobile-open')){ closeToolbarMenu(); return true; }
+ if(toolbar.classList.contains('open')){ closeToolbarMenu(); return true; }
  return false;
 }
+
+toolbar.addEventListener('click',event=>{
+ const clickedButton=event.target?.closest?.('button');
+ if(!clickedButton) return;
+ closeToolbarMenu();
+});
 
 document.addEventListener('contextmenu',event=>{
  if(!isMobileViewport()) return;
@@ -439,6 +444,7 @@ async function bootstrapAuth(){
   role=(receivedRole==='admin'||receivedRole==='editor')?receivedRole:'viewer';
   currentUsername=payload.user?.username||'';
   updateModeUi();
+  openProjectList();
  }catch(_err){
   window.location.href='/login';
  }

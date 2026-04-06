@@ -23,7 +23,6 @@
     <span id="modeLabel">-</span>
     <button onclick="logout()">🚪 Deconnexion</button>
     <button id="usersAdminBtn" onclick="openUsersModal()" style="display:none;">👤 Utilisateurs</button>
-    <button id="newProjectBtn" onclick="openNewProjectModal()">📄 Nouvelle carte</button>
     <button onclick="openProjectList()">📂 Charger une carte</button>
   </div>
 </div>
@@ -102,6 +101,7 @@
 <div id="projectListModal" class="modal">
   <div class="modal-content">
     <h3>Projets sauvegardés</h3>
+    <button id="newProjectFromListBtn" onclick="openNewProjectModal()">📄 Nouvelle carte</button>
     <div id="projectListColumns">
       <div class="project-column">
         <h4>Mes projets</h4>

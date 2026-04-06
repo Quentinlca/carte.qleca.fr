@@ -5,7 +5,10 @@ body { margin:0; font-family:Arial; overflow:hidden; }
 #projectSettingsBtn { background:transparent; border:1px solid #777; color:#fff; border-radius:6px; cursor:pointer; padding:2px 6px; }
 #projectAccessBadge { margin-left:auto; font-size:12px; padding:3px 8px; border-radius:999px; border:1px solid #666; background:#1b1b1b; color:#ddd; text-transform:lowercase; }
 #saveStatus { font-size:13px; opacity:0.9; }
-#toolbar { position:relative; z-index:1000; background:#222; color:#fff; padding:10px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+#toolbarToggleBtn { min-width:40px; }
+#toolbar { position:fixed; top:54px; left:10px; right:10px; z-index:1500; background:#222; color:#fff; padding:10px; border-radius:10px; border:1px solid #444; display:none; }
+#toolbar.open { display:block; }
+#toolbarContent { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
 #toolbar button,label { margin-right:0; }
 #plan-container { width:100%; height:calc(100vh - 92px); height:calc(100dvh - 92px); background:#eee; overflow:hidden; cursor:default; position:relative; touch-action:none; }
 #plan-wrapper { position:absolute; transform-origin:top left; }
@@ -36,6 +39,7 @@ body { margin:0; font-family:Arial; overflow:hidden; }
 .modal-content { background:#fff; padding:20px; max-width:600px; width:90%; max-height:90dvh; overflow:auto; border-radius:10px; }
 #viewModal { z-index:1200; }
 #viewGallery img { width:72px; height:72px; object-fit:cover; margin:5px; cursor:zoom-in; border-radius:6px; }
+#newProjectFromListBtn { margin:0 0 12px; }
 #projectListColumns { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:12px; }
 .project-column { border:1px solid #ddd; border-radius:8px; padding:10px; min-height:160px; }
 .project-column h4 { margin:0 0 8px; }
@@ -103,6 +107,10 @@ body { margin:0; font-family:Arial; overflow:hidden; }
 
   #projectListColumns {
     grid-template-columns:1fr;
+  }
+
+  #toolbar {
+    top:94px;
   }
 
   #usersCreateBox {
