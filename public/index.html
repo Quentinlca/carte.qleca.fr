@@ -10,19 +10,22 @@
 
 <div id="project-bar">
   <div id="projectTitleWrap">
+    <button id="toolbarToggleBtn" onclick="toggleToolbar()">☰</button>
     <span id="projectNameText"></span>
+    <span id="projectAccessBadge"></span>
     <button id="projectSettingsBtn" onclick="openProjectSettings()" title="Project settings">⚙️</button>
   </div>
-  <span id="projectAccessBadge"></span>
   <span id="saveStatus"></span>
 </div>
 
 <div id="toolbar">
-  <span id="modeLabel">-</span>
-  <button onclick="logout()">Logout</button>
-  <button id="usersAdminBtn" onclick="openUsersModal()" style="display:none;">👤 Users</button>
-  <button id="newProjectBtn" onclick="openNewProjectModal()">📄 New Project</button>
-  <button onclick="openProjectList()">📂 Load Project</button>
+  <div id="toolbarContent">
+    <span id="modeLabel">-</span>
+    <button onclick="logout()">🚪 Deconnexion</button>
+    <button id="usersAdminBtn" onclick="openUsersModal()" style="display:none;">👤 Utilisateurs</button>
+    <button id="newProjectBtn" onclick="openNewProjectModal()">📄 Nouvelle carte</button>
+    <button onclick="openProjectList()">📂 Charger une carte</button>
+  </div>
 </div>
 
 <div id="plan-container"><div id="plan-wrapper"><img id="plan"></div></div>
@@ -35,22 +38,18 @@
                 <input id="title" placeholder="Nom">
             </div>
             <div>
-                <label>Type de point:</label>
                 <select id="pointType" onchange="togglePointTypeInput()">
                   <option value="color">Point</option>
                   <option value="emoji">Icone</option>
                 </select>
               </div>
               <div id="colorInputWrapper">
-                <label for="color">Couleur:</label>
                 <input type="color" id="color" value="#FF0000">
               </div>
               <div id="emojiInputWrapper" style="display:none;">
-                <label for="emoji">Icone:</label>
                 <input type="hidden" id="emoji" value="📍">
                 <div id="emojiSelectorRow">
-                  <button type="button" id="emojiPickerBtn" onclick="toggleEmojiPicker()">Choisir un emoji</button>
-                  <span id="emojiPreview" aria-label="Emoji sélectionné">📍</span>
+                  <button type="button" id="emojiPickerBtn" onclick="toggleEmojiPicker()" aria-label="Emoji sélectionné">📍</button>
                 </div>
                 <emoji-picker id="emojiPicker" style="display:none;"></emoji-picker>
             </div>
@@ -105,11 +104,11 @@
     <h3>Projets sauvegardés</h3>
     <div id="projectListColumns">
       <div class="project-column">
-        <h4>My projects</h4>
+        <h4>Mes projets</h4>
         <div id="myProjectList"></div>
       </div>
       <div class="project-column">
-        <h4>Community projects</h4>
+        <h4>Projets de la communauté</h4>
         <div id="communityProjectList"></div>
       </div>
     </div>
@@ -144,8 +143,8 @@
     <p><strong>Dernière modification:</strong> <span id="settingsUpdatedAt"></span></p>
     <p><strong>Nombre de points:</strong> <span id="settingsPointCount"></span></p>
     <div id="projectActions">
-      <button id="renameProjectBtn" onclick="openRenameProject()">🖉</button>
-      <button id="duplicateProjectBtn" onclick="duplicateProject()">🗍</button>
+      <button id="renameProjectBtn" onclick="openRenameProject()">✏️</button>
+      <button id="duplicateProjectBtn" onclick="duplicateProject()">🔁</button>
       <button id="deleteProjectBtn" onclick="openDeleteProjectConfirm()">🗑️</button>
     </div>
     <button onclick="closeProjectSettings()">Fermer</button>
@@ -208,7 +207,10 @@
     <h3>Gestion des utilisateurs</h3>
     <div id="usersCreateBox">
       <input id="usersNameInput" type="text" placeholder="username (3-40 chars)">
-      <input id="usersPasswordInput" type="password" placeholder="mot de passe (min 8)">
+      <div class="password-with-toggle">
+        <input id="usersPasswordInput" type="password" placeholder="mot de passe (min 8)">
+        <button type="button" id="usersPasswordToggleBtn" class="password-toggle-btn">Voir</button>
+      </div>
       <select id="usersRoleInput">
         <option value="viewer">viewer</option>
         <option value="editor">editor</option>

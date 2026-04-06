@@ -10,8 +10,8 @@ const title=document.getElementById('title');
 const pointType=document.getElementById('pointType');
 const color=document.getElementById('color');
 const emoji=document.getElementById('emoji');
+const emojiPickerBtn=document.getElementById('emojiPickerBtn');
 const emojiPicker=document.getElementById('emojiPicker');
-const emojiPreview=document.getElementById('emojiPreview');
 const colorInputWrapper=document.getElementById('colorInputWrapper');
 const emojiInputWrapper=document.getElementById('emojiInputWrapper');
 const desc=document.getElementById('desc');
@@ -66,10 +66,12 @@ const usersModal=document.getElementById('usersModal');
 const usersList=document.getElementById('usersList');
 const usersNameInput=document.getElementById('usersNameInput');
 const usersPasswordInput=document.getElementById('usersPasswordInput');
+const usersPasswordToggleBtn=document.getElementById('usersPasswordToggleBtn');
 const usersRoleInput=document.getElementById('usersRoleInput');
 const usersError=document.getElementById('usersError');
 
 const modeLabel=document.getElementById('modeLabel');
+const toolbar=document.getElementById('toolbar');
 
 plan.draggable=false;
 plan.addEventListener('dragstart',e=>e.preventDefault());
@@ -279,7 +281,71 @@ function updateProjectHeader(){
 
 function updateProjectBarVisibility(){
  projectBar.style.display=currentProjectId?'flex':'none';
+ toolbar.classList.toggle('no-project',!currentProjectId);
+ if(currentProjectId){
+  toolbar.classList.remove('mobile-open');
+ }
 }
+
+function togglePasswordVisibility(input,button){
+ const hidden=input.type==='password';
+ input.type=hidden?'text':'password';
+ button.textContent=hidden?'Masquer':'Voir';
+}
+
+if(usersPasswordToggleBtn && usersPasswordInput){
+ usersPasswordToggleBtn.addEventListener('click',()=>togglePasswordVisibility(usersPasswordInput,usersPasswordToggleBtn));
+}
+
+function toggleToolbar(){
+ if(!currentProjectId) return;
+ const willOpen=!toolbar.classList.contains('mobile-open');
+ toolbar.classList.toggle('mobile-open');
+ if(willOpen) pushMobileBackState();
+}
+
+function closeToolbarMenu(){
+ toolbar.classList.remove('mobile-open');
+}
+
+function isMobileViewport(){
+ return window.matchMedia('(max-width: 768px)').matches;
+}
+
+function isTextEntryTarget(target){
+ return !!target?.closest?.('input, textarea, [contenteditable="true"], [contenteditable=""]');
+}
+
+function pushMobileBackState(){
+ if(!isMobileViewport()) return;
+ history.pushState({menuOpen:true},'');
+}
+
+function closeTopOpenMenu(){
+ if(imageModal.style.display==='flex'){ closeFullImage(); return true; }
+ if(newProjectModal.style.display==='flex'){ closeNewProjectModal(); return true; }
+ if(renameProjectModal.style.display==='flex'){ closeRenameProject(); return true; }
+ if(deleteProjectModal.style.display==='flex'){ closeDeleteProjectConfirm(); return true; }
+ if(projectSettingsModal.style.display==='flex'){ closeProjectSettings(); return true; }
+ if(usersModal.style.display==='flex'){ closeUsersModal(); return true; }
+ if(formModal.style.display==='flex'){ closeForm(); return true; }
+ if(viewModal.style.display==='flex'){ closeView(); return true; }
+ if(projectListModal.style.display==='flex'){ closeProjectList(); return true; }
+ if(toolbar.classList.contains('mobile-open')){ closeToolbarMenu(); return true; }
+ return false;
+}
+
+document.addEventListener('contextmenu',event=>{
+ if(!isMobileViewport()) return;
+ if(isTextEntryTarget(event.target)) return;
+ event.preventDefault();
+});
+
+document.addEventListener('selectstart',event=>{
+ if(!isMobileViewport()) return;
+ if(isTextEntryTarget(event.target)) return;
+ event.preventDefault();
+});
 
 async function apiFetch(url,options={}){
  const response=await fetch(url,options);
@@ -422,6 +488,7 @@ window.addEventListener('resize',()=>{
 });
 
 container.addEventListener('click',e=>{
+ if(isMobileViewport()) return;
  if(moved) return;
  if(!canEditCurrentProject()) return;
  const rect=plan.getBoundingClientRect();
@@ -443,7 +510,7 @@ function togglePointTypeInput(){
 function setSelectedEmoji(value){
  const selected=value||'📍';
  emoji.value=selected;
- if(emojiPreview) emojiPreview.textContent=selected;
+ if(emojiPickerBtn) emojiPickerBtn.textContent=selected;
 }
 
 function toggleEmojiPicker(){
@@ -467,13 +534,14 @@ if(emojiPicker){
 document.addEventListener('click',event=>{
  if(!emojiPicker || pointType.value!=='emoji') return;
  const inPicker=emojiPicker.contains(event.target);
- const isButton=event.target.id==='emojiPickerBtn';
+ const isButton=event.target?.closest?.('#emojiPickerBtn');
  if(!inPicker && !isButton) closeEmojiPicker();
 });
 
 function openForm(h=null){
  if(!canEditCurrentProject()) return;
  formModal.style.display='flex';
+ pushMobileBackState();
  if(h){
   editingId=h.id;
   title.value=h.title;
@@ -589,17 +657,19 @@ async function openView(h){
   hideLoading();
  }
  viewModal.style.display='flex';
+ pushMobileBackState();
 }
 
 function closeView(){ viewModal.style.display='none'; }
 function showFullImage(src){ fullImage.src=src; imageModal.style.display='flex'; }
 function closeFullImage(){ imageModal.style.display='none'; fullImage.src=''; }
 function editHotspot(){ if(!canEditCurrentProject()) return; closeView(); openForm(currentView); }
-function deleteHotspotConfirm(){ if(!canEditCurrentProject()) return; deleteHotspotModal.style.display='flex'; }
+function deleteHotspotConfirm(){ if(!canEditCurrentProject()) return; deleteHotspotModal.style.display='flex'; pushMobileBackState(); }
 function confirmDeleteHotspot(){ if(!canEditCurrentProject()) return; hotspots=hotspots.filter(h=>h.id!==currentView.id); closeDeleteHotspotConfirm(); closeView(); refresh(); saveProject(); }
 function closeDeleteHotspotConfirm(){ deleteHotspotModal.style.display='none'; }
 
 function openProjectSettings(){
+ closeToolbarMenu();
  settingsProjectName.textContent=currentProjectName;
  settingsOwner.textContent=currentProjectOwner||'-';
  settingsVisibility.textContent=currentProjectVisibility;
@@ -618,6 +688,7 @@ function openProjectSettings(){
  settingsPointCount.textContent=String(hotspots.length);
  updateModeUi();
  projectSettingsModal.style.display='flex';
+ pushMobileBackState();
 }
 
 function closeProjectSettings(){ projectSettingsModal.style.display='none'; }
@@ -651,13 +722,15 @@ function openRenameProject(){
  renameProjectInput.value=currentProjectName;
  renameError.textContent='';
  renameProjectModal.style.display='flex';
+ pushMobileBackState();
 }
 function closeRenameProject(){ renameProjectModal.style.display='none'; }
-function openDeleteProjectConfirm(){ if(canManageCurrentProjectIdentity()) deleteProjectModal.style.display='flex'; }
+function openDeleteProjectConfirm(){ if(canManageCurrentProjectIdentity()){ deleteProjectModal.style.display='flex'; pushMobileBackState(); } }
 function closeDeleteProjectConfirm(){ deleteProjectModal.style.display='none'; }
 function closeProjectList(){ projectListModal.style.display='none'; }
 
 function openNewProjectModal(){
+ closeToolbarMenu();
  newProjectNameInput.value='';
  newProjectVisibilityInput.value='private';
  newProjectPublicAccessInput.value='view_only';
@@ -665,6 +738,7 @@ function openNewProjectModal(){
  newProjectError.textContent='';
  updateNewProjectAccessUi();
  newProjectModal.style.display='flex';
+ pushMobileBackState();
 }
 
 function closeNewProjectModal(){ newProjectModal.style.display='none'; }
@@ -893,9 +967,11 @@ async function deleteProjectFromList(project){
 }
 
 async function openProjectList(){
+ closeToolbarMenu();
  myProjectList.textContent='Chargement...';
  communityProjectList.textContent='Chargement...';
  projectListModal.style.display='flex';
+ pushMobileBackState();
  try{
   const response=await apiFetch('/projects');
   const data=await response.json();
@@ -987,10 +1063,22 @@ async function openProjectList(){
     roleSelect.value=user.role;
     row.appendChild(roleSelect);
 
+    const passwordWrap=document.createElement('div');
+    passwordWrap.className='password-with-toggle';
+
     const passwordInput=document.createElement('input');
     passwordInput.type='password';
     passwordInput.placeholder='nouveau mot de passe';
-    row.appendChild(passwordInput);
+    passwordWrap.appendChild(passwordInput);
+
+    const passwordToggleBtn=document.createElement('button');
+    passwordToggleBtn.type='button';
+    passwordToggleBtn.className='password-toggle-btn';
+    passwordToggleBtn.textContent='Voir';
+    passwordToggleBtn.onclick=()=>togglePasswordVisibility(passwordInput,passwordToggleBtn);
+    passwordWrap.appendChild(passwordToggleBtn);
+
+    row.appendChild(passwordWrap);
 
     const saveBtn=document.createElement('button');
     saveBtn.textContent='Save';
@@ -1022,11 +1110,13 @@ async function openProjectList(){
 
   async function openUsersModal(){
    if(role!=='admin') return;
+    closeToolbarMenu();
    usersError.textContent='';
    usersNameInput.value='';
    usersPasswordInput.value='';
    usersRoleInput.value='viewer';
    usersModal.style.display='flex';
+  pushMobileBackState();
    await refreshUsersList();
   }
 
@@ -1089,15 +1179,16 @@ async function openProjectList(){
 
 window.addEventListener('keydown',e=>{
  if(e.key!=='Escape') return;
- if(imageModal.style.display==='flex'){ closeFullImage(); return; }
- if(newProjectModal.style.display==='flex'){ closeNewProjectModal(); return; }
- if(renameProjectModal.style.display==='flex'){ closeRenameProject(); return; }
- if(deleteProjectModal.style.display==='flex'){ closeDeleteProjectConfirm(); return; }
- if(projectSettingsModal.style.display==='flex'){ closeProjectSettings(); return; }
- if(usersModal.style.display==='flex'){ closeUsersModal(); return; }
- if(formModal.style.display==='flex'){ closeForm(); return; }
- if(viewModal.style.display==='flex'){ closeView(); return; }
- if(projectListModal.style.display==='flex'){ closeProjectList(); }
+ closeTopOpenMenu();
+});
+
+window.addEventListener('popstate',()=>{
+ if(closeTopOpenMenu()) return;
+ if(!isMobileViewport()) return;
+ if(forcingNativeBack) return;
+ forcingNativeBack=true;
+ history.back();
+ setTimeout(()=>{ forcingNativeBack=false; },300);
 });
 
 async function saveProject(){
