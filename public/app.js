@@ -88,11 +88,13 @@ let currentUsername='';
 let scale=1, originX=0, originY=0;
 let isDragging=false, moved=false, startX,startY;
 let loadingRequests=0;
+let shouldRecenterOnResize=false;
 
 function showLoading(message='Chargement...'){
  loadingRequests+=1;
  loadingMessage.textContent=message;
  loadingModal.style.display='flex';
+ document.body.style.overflow='hidden';
 }
 
 function hideLoading(){
@@ -100,6 +102,7 @@ function hideLoading(){
  if(loadingRequests===0){
   loadingModal.style.display='none';
   loadingMessage.textContent='Chargement...';
+  document.body.style.overflow='';
  }
 }
 
@@ -121,6 +124,7 @@ function centerPlanInViewport(){
 }
 
 function scheduleCenterPlan(){
+ shouldRecenterOnResize=true;
  if(!plan.src){
   scale=1;
   originX=0;
@@ -284,6 +288,7 @@ async function logout(){
 
 container.addEventListener('wheel',e=>{
  e.preventDefault();
+ shouldRecenterOnResize=false;
  const rect=container.getBoundingClientRect();
  const mouseX=e.clientX-rect.left;
  const mouseY=e.clientY-rect.top;
@@ -299,6 +304,7 @@ container.addEventListener('wheel',e=>{
 container.addEventListener('mousedown',e=>{
  if(e.button!==0) return;
  e.preventDefault();
+ shouldRecenterOnResize=false;
  isDragging=true; moved=false;
  startX=e.clientX-originX; startY=e.clientY-originY;
  container.style.cursor='grabbing';
@@ -314,6 +320,12 @@ window.addEventListener('mousemove',e=>{
 window.addEventListener('mouseup',()=>{
  isDragging=false;
  container.style.cursor='default';
+});
+
+window.addEventListener('resize',()=>{
+ if(!shouldRecenterOnResize) return;
+ if(!currentProjectId || !plan.src) return;
+ requestAnimationFrame(centerPlanInViewport);
 });
 
 container.addEventListener('click',e=>{
@@ -613,6 +625,7 @@ async function confirmCreateProject(){
   currentProjectUpdatedAt=result.project.updatedAt||null;
   projectNameCustomized=true;
   closeNewProjectModal();
+  scheduleCenterPlan();
   setSaveStatus(`Projet créé: ${currentProjectName}`);
  }catch(_err){
   newProjectError.textContent='Erreur lors de la création du projet.';
@@ -704,6 +717,7 @@ async function loadProjectById(projectId){
   const data=await response.json();
   applyLoadedProject(data,data.projectName);
   closeProjectList();
+  scheduleCenterPlan();
   setSaveStatus(`Loaded: ${currentProjectName}`);
  }finally{
   hideLoading();
