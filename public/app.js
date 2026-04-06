@@ -487,8 +487,10 @@ container.addEventListener('wheel',e=>{
 });
 
 container.addEventListener('pointerdown',e=>{
- if(!e.isPrimary) return;
- if(e.pointerType==='mouse' && e.button!==0) return;
+ if(e.pointerType==='mouse'){
+  if(!e.isPrimary) return;
+  if(e.button!==0) return;
+ }
  const hotspotTarget=e.target?.closest?.('.hotspot');
 
  if(e.pointerType==='touch'){
