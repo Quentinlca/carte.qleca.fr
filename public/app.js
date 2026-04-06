@@ -89,6 +89,7 @@ let projectNameCustomized=false;
 let currentUsername='';
 
 let scale=1, originX=0, originY=0;
+let minScale=1;
 let isDragging=false, moved=false, startX,startY;
 let loadingRequests=0;
 let shouldRecenterOnResize=false;
@@ -136,7 +137,7 @@ function containerPointFromClient(clientX,clientY){
 
 function applyZoomAt(containerX,containerY,zoomFactor){
  if(!Number.isFinite(zoomFactor) || zoomFactor<=0) return;
- const nextScale=Math.min(8,Math.max(0.2,scale*zoomFactor));
+ const nextScale=Math.min(8,Math.max(minScale,scale*zoomFactor));
  const ratio=nextScale/scale;
  originX=containerX-(containerX-originX)*ratio;
  originY=containerY-(containerY-originY)*ratio;
@@ -238,7 +239,8 @@ function centerPlanInViewport(){
  if(!rect.width || !rect.height || !imageWidth || !imageHeight) return;
 
  const fitScale=Math.min(rect.width/imageWidth,rect.height/imageHeight);
- scale=(Number.isFinite(fitScale) && fitScale>0)?fitScale:1;
+ minScale=(Number.isFinite(fitScale) && fitScale>0)?fitScale:1;
+ scale=minScale;
  originX=(rect.width-imageWidth*scale)/2;
  originY=(rect.height-imageHeight*scale)/2;
  applyViewportTransform();
@@ -247,6 +249,7 @@ function centerPlanInViewport(){
 function scheduleCenterPlan(){
  shouldRecenterOnResize=true;
  if(!plan.src){
+  minScale=1;
   scale=1;
   originX=0;
   originY=0;
@@ -571,7 +574,7 @@ container.addEventListener('pointermove',e=>{
   if(currentDistance<4) return;
   const center=centerBetweenPoints(a,b);
   const zoomFactor=currentDistance/pinchStartDistance;
-  const nextScale=Math.min(8,Math.max(0.2,pinchStartScale*zoomFactor));
+  const nextScale=Math.min(8,Math.max(minScale,pinchStartScale*zoomFactor));
   const ratio=nextScale/pinchStartScale;
   originX=center.x-(center.x-pinchStartOriginX)*ratio;
   originY=center.y-(center.y-pinchStartOriginY)*ratio;
