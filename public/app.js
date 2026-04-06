@@ -654,7 +654,7 @@ container.addEventListener('pointermove',e=>{
   }
   
   // Calculate zoom factor from distance ratio
-  const zoomFactor=pinchDistanceAB/currentDistanceAB;
+  const zoomFactor=currentDistanceAB/pinchDistanceAB;
   const nextScale=Math.min(8,Math.max(minScale,pinchStartScale*zoomFactor));
   const ratio=nextScale/pinchStartScale;
   
