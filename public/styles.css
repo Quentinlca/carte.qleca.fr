@@ -1,5 +1,4 @@
 body { margin:0; font-family:Arial; overflow:hidden; }
-body.booting #project-bar,
 body.booting #toolbar,
 body.booting #plan-container {
   opacity:0;

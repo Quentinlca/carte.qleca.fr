@@ -350,13 +350,13 @@ function updateModeUi(){
 }
 
 function updateProjectHeader(){
- projectNameText.textContent=currentProjectName;
+ projectNameText.textContent=currentProjectName||'Aucune carte sélectionnée';
  const accessLabel=currentProjectVisibility==='private'?'private':sanitizePublicAccess(currentProjectPublicAccess);
- projectAccessBadge.textContent=accessLabel;
+ projectAccessBadge.textContent=currentProjectId?accessLabel:'-';
 }
 
 function updateProjectBarVisibility(){
- projectBar.style.display=currentProjectId?'flex':'none';
+ projectBar.style.display='flex';
  closeToolbarMenu();
 }
 
@@ -371,7 +371,6 @@ if(usersPasswordToggleBtn && usersPasswordInput){
 }
 
 function toggleToolbar(){
- if(!currentProjectId) return;
  const willOpen=!toolbar.classList.contains('open');
  toolbar.classList.toggle('open');
  if(willOpen) pushMobileBackState();
