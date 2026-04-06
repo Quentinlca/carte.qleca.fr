@@ -86,6 +86,42 @@ let currentUsername='';
 let scale=1, originX=0, originY=0;
 let isDragging=false, moved=false, startX,startY;
 
+function applyViewportTransform(){
+ wrapper.style.transform=`translate(${originX}px,${originY}px) scale(${scale})`;
+}
+
+function centerPlanInViewport(){
+ const rect=container.getBoundingClientRect();
+ const imageWidth=plan.naturalWidth||0;
+ const imageHeight=plan.naturalHeight||0;
+ if(!rect.width || !rect.height || !imageWidth || !imageHeight) return;
+
+ const fitScale=Math.min(rect.width/imageWidth,rect.height/imageHeight);
+ scale=(Number.isFinite(fitScale) && fitScale>0)?fitScale:1;
+ originX=(rect.width-imageWidth*scale)/2;
+ originY=(rect.height-imageHeight*scale)/2;
+ applyViewportTransform();
+}
+
+function scheduleCenterPlan(){
+ if(!plan.src){
+  scale=1;
+  originX=0;
+  originY=0;
+  applyViewportTransform();
+  return;
+ }
+
+ if(plan.complete && plan.naturalWidth>0){
+  requestAnimationFrame(centerPlanInViewport);
+  return;
+ }
+
+ plan.addEventListener('load',()=>{
+  requestAnimationFrame(centerPlanInViewport);
+ },{once:true});
+}
+
 function sanitizeProjectName(name){
  const cleaned=(name||'').trim().replace(/\.json$/i,'').replace(/[<>:"/\\|?*\x00-\x1F]/g,'_').slice(0,120).trim();
  return cleaned||'project';
@@ -206,6 +242,7 @@ async function bootstrapAuth(){
 function applyLoadedProject(data,fallbackName){
  currentProjectId=String(data.projectId||'');
  plan.src=data.image||'';
+ scheduleCenterPlan();
  hotspots=Array.isArray(data.hotspots)?data.hotspots:[];
  currentProjectName=sanitizeProjectName(data.projectName||fallbackName||currentProjectName);
  currentProjectCreatedAt=data.createdAt||null;
@@ -239,7 +276,7 @@ container.addEventListener('wheel',e=>{
  originY=mouseY-(mouseY-originY)*zoom;
  scale*=zoom;
 
- wrapper.style.transform=`translate(${originX}px,${originY}px) scale(${scale})`;
+ applyViewportTransform();
 });
 
 container.addEventListener('mousedown',e=>{
@@ -254,7 +291,7 @@ window.addEventListener('mousemove',e=>{
  if(!isDragging) return;
  if (originX!==e.clientX-startX || originY!==e.clientY-startY) moved=true;
  originX=e.clientX-startX; originY=e.clientY-startY;
- wrapper.style.transform=`translate(${originX}px,${originY}px) scale(${scale})`;
+ applyViewportTransform();
 });
 
 window.addEventListener('mouseup',()=>{
