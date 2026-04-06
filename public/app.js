@@ -974,6 +974,7 @@ async function confirmCreateProject(){
   currentProjectUpdatedAt=result.project.updatedAt||null;
   projectNameCustomized=true;
   closeNewProjectModal();
+  closeProjectList();
   scheduleCenterPlan();
   setSaveStatus(`Projet créé: ${currentProjectName}`);
  }catch(_err){
