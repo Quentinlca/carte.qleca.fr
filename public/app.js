@@ -107,7 +107,13 @@ let lastTapAt=0;
 let lastTapX=0;
 let lastTapY=0;
 const activeTouchPoints=new Map();
-let pinchStartDistance=0;
+
+// Pinch state (cooperative gesture mode with vector-based calculation)
+let pinchMode=false;
+let pinchPointAStart={x:0,y:0};
+let pinchPointBStart={x:0,y:0};
+let pinchVectorAB={x:0,y:0};
+let pinchDistanceAB=0;
 let pinchStartScale=1;
 let pinchStartOriginX=0;
 let pinchStartOriginY=0;
@@ -170,12 +176,39 @@ function centerBetweenPoints(a,b){
  return { x:(a.x+b.x)/2, y:(a.y+b.y)/2 };
 }
 
+function dotProduct(v1,v2){
+ return v1.x*v2.x+v1.y*v2.y;
+}
+
+function vectorNorm(v){
+ return Math.hypot(v.x,v.y);
+}
+
+function vectorSubtract(p1,p2){
+ return {x:p1.x-p2.x,y:p1.y-p2.y};
+}
+
+function vectorAdd(p,v){
+ return {x:p.x+v.x,y:p.y+v.y};
+}
+
+function vectorScale(v,s){
+ return {x:v.x*s,y:v.y*s};
+}
+
 function beginPinchIfPossible(){
  const pair=getFirstTwoTouchPoints();
  if(!pair) return;
  const [a,b]=pair;
- pinchStartDistance=distanceBetweenPoints(a,b);
- if(pinchStartDistance<4) return;
+ 
+ pinchPointAStart={x:a.x,y:a.y};
+ pinchPointBStart={x:b.x,y:b.y};
+ pinchVectorAB=vectorSubtract(b,a);
+ pinchDistanceAB=vectorNorm(pinchVectorAB);
+ 
+ if(pinchDistanceAB<4) return;
+ 
+ pinchMode=true;
  pinchStartScale=scale;
  pinchStartOriginX=originX;
  pinchStartOriginY=originY;
@@ -583,19 +616,50 @@ container.addEventListener('pointermove',e=>{
  if(e.pointerType==='touch' && activeTouchPoints.size>=2){
   e.preventDefault();
   const pair=getFirstTwoTouchPoints();
-  if(!pair || pinchStartDistance<4 || !Number.isFinite(pinchStartScale) || pinchStartScale<=0){
+  if(!pair || !pinchMode || !Number.isFinite(pinchStartScale) || pinchStartScale<=0){
    return;
   }
 
   const [a,b]=pair;
-  const currentDistance=distanceBetweenPoints(a,b);
-  if(currentDistance<4) return;
-  const center=centerBetweenPoints(a,b);
-  const zoomFactor=currentDistance/pinchStartDistance;
+  
+  // Calculate current vector AB and its distance
+  const currentVectorAB=vectorSubtract(b,a);
+  const currentDistanceAB=vectorNorm(currentVectorAB);
+  if(currentDistanceAB<4) return;
+  
+  // Calculate movements of fingers A and B
+  const movementA=vectorSubtract(a,pinchPointAStart);
+  const movementB=vectorSubtract(b,pinchPointBStart);
+  
+  // Calculate dot products (projections along AB)
+  const dotA=dotProduct(movementA,pinchVectorAB);
+  const dotB=dotProduct(movementB,pinchVectorAB);
+  
+  // Calculate zoom origin position along AB
+  const absDotA=Math.abs(dotA);
+  const absDotB=Math.abs(dotB);
+  const sumDots=absDotA+absDotB;
+  
+  let zoomOriginX,zoomOriginY;
+  if(sumDots>0.1){
+   const t=absDotA/sumDots; // position along AB (0 at A, 1 at B)
+   const tempOrigin=vectorAdd(a,vectorScale(pinchVectorAB,t));
+   zoomOriginX=tempOrigin.x;
+   zoomOriginY=tempOrigin.y;
+  } else {
+   // If movements are too small, use midpoint
+   const midpoint=centerBetweenPoints(a,b);
+   zoomOriginX=midpoint.x;
+   zoomOriginY=midpoint.y;
+  }
+  
+  // Calculate zoom factor from distance ratio
+  const zoomFactor=pinchDistanceAB/currentDistanceAB;
   const nextScale=Math.min(8,Math.max(minScale,pinchStartScale*zoomFactor));
   const ratio=nextScale/pinchStartScale;
-  originX=center.x-(center.x-pinchStartOriginX)*ratio;
-  originY=center.y-(center.y-pinchStartOriginY)*ratio;
+  
+  originX=zoomOriginX-(zoomOriginX-pinchStartOriginX)*ratio;
+  originY=zoomOriginY-(zoomOriginY-pinchStartOriginY)*ratio;
   scale=nextScale;
   moved=true;
   applyViewportTransform();
@@ -631,7 +695,7 @@ function endPointerPan(e){
  if(e.pointerType==='touch'){
   activeTouchPoints.delete(e.pointerId);
   if(activeTouchPoints.size<2){
-   pinchStartDistance=0;
+   pinchMode=false;
   }
   if(activeTouchPoints.size===0){
    moved=false;
@@ -690,7 +754,7 @@ container.addEventListener('lostpointercapture',e=>{
  if(e.pointerType==='touch'){
   activeTouchPoints.delete(e.pointerId);
   if(activeTouchPoints.size<2){
-   pinchStartDistance=0;
+   pinchMode=false;
   }
  }
  cancelLongPress();
