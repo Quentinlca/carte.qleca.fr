@@ -34,8 +34,9 @@ body { margin:0; font-family:Arial; overflow:hidden; }
 #emojiSelectorRow { display:flex; align-items:center; gap:10px; margin:8px 0; }
 #emojiPickerBtn { padding:6px 10px; min-width:52px; font-size:24px; line-height:1; cursor:pointer; }
 #emojiPicker { width:min(100%, 360px); max-height:320px; }
-.modal { position:fixed; inset:0; background:rgba(0,0,0,0.8); display:none; justify-content:center; align-items:center; z-index:3000; }
+.modal { position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.8); display:none; justify-content:center; align-items:center; }
 .modal-content { background:#fff; padding:20px; max-width:600px; width:90%; border-radius:10px; }
+#viewModal { z-index:1200; }
 #viewGallery img { width:72px; height:72px; object-fit:cover; margin:5px; cursor:zoom-in; border-radius:6px; }
 #projectListColumns { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:12px; }
 .project-column { border:1px solid #ddd; border-radius:8px; padding:10px; min-height:160px; }
@@ -58,7 +59,7 @@ body { margin:0; font-family:Arial; overflow:hidden; }
 .password-with-toggle input { flex:1; }
 .password-toggle-btn { min-width:58px; padding:6px 8px; }
 .user-row input,.user-row select,#usersCreateBox input,#usersCreateBox select { padding:6px 8px; }
-#imageModal { z-index:2000; }
+#imageModal { z-index:4000; }
 #fullImage { max-width:92vw; max-height:92vh; object-fit:contain; }
 
 @media (pointer: coarse) {
