@@ -28,6 +28,7 @@ const loadingMessage=document.getElementById('loadingMessage');
 
 const projectNameText=document.getElementById('projectNameText');
 const projectAccessBadge=document.getElementById('projectAccessBadge');
+const projectSettingsBtn=document.getElementById('projectSettingsBtn');
 const saveStatus=document.getElementById('saveStatus');
 const projectBar=document.getElementById('project-bar');
 const projectSettingsModal=document.getElementById('projectSettingsModal');
@@ -350,9 +351,12 @@ function updateModeUi(){
 }
 
 function updateProjectHeader(){
- projectNameText.textContent=currentProjectName||'Aucune carte sélectionnée';
+ const hasProject=Boolean(currentProjectId);
+ projectNameText.textContent=currentProjectName||'Editeur de carte interactive';
  const accessLabel=currentProjectVisibility==='private'?'private':sanitizePublicAccess(currentProjectPublicAccess);
- projectAccessBadge.textContent=currentProjectId?accessLabel:'-';
+ projectAccessBadge.textContent=accessLabel;
+ projectAccessBadge.style.display=hasProject?'inline-block':'none';
+ projectSettingsBtn.style.display=hasProject?'inline-block':'none';
 }
 
 function updateProjectBarVisibility(){
@@ -846,6 +850,7 @@ function confirmDeleteHotspot(){ if(!canEditCurrentProject()) return; hotspots=h
 function closeDeleteHotspotConfirm(){ deleteHotspotModal.style.display='none'; }
 
 function openProjectSettings(){
+ if(!currentProjectId) return;
  closeToolbarMenu();
  settingsProjectName.textContent=currentProjectName;
  settingsOwner.textContent=currentProjectOwner||'-';
