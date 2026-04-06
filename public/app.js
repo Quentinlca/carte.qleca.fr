@@ -23,6 +23,8 @@ const editHotspotBtn=document.getElementById('editHotspotBtn');
 const deleteHotspotBtn=document.getElementById('deleteHotspotBtn');
 const imageModal=document.getElementById('imageModal');
 const fullImage=document.getElementById('fullImage');
+const loadingModal=document.getElementById('loadingModal');
+const loadingMessage=document.getElementById('loadingMessage');
 
 const projectNameText=document.getElementById('projectNameText');
 const projectAccessBadge=document.getElementById('projectAccessBadge');
@@ -87,70 +89,20 @@ let currentUsername='';
 
 let scale=1, originX=0, originY=0;
 let isDragging=false, moved=false, startX,startY;
-let touchMode='none';
-let touchStartDistance=0;
-let touchStartScale=1;
-let longPressTimer=null;
-let longPressTriggered=false;
-let touchPanStartClientX=0;
-let touchPanStartClientY=0;
-let touchLastClientX=0;
-let touchLastClientY=0;
-let lastTapTime=0;
-let lastTapX=0;
-let lastTapY=0;
-let forcingNativeBack=false;
+let loadingRequests=0;
 
-const MOBILE_DOUBLE_TAP_MS=320;
-const MOBILE_DOUBLE_TAP_DISTANCE=24;
-const MOBILE_LONG_PRESS_MS=420;
-const MOBILE_MOVE_CANCEL_PX=10;
-
-function clamp(value,min,max){
- return Math.min(max,Math.max(min,value));
+function showLoading(message='Chargement...'){
+ loadingRequests+=1;
+ loadingMessage.textContent=message;
+ loadingModal.style.display='flex';
 }
 
-function applyWrapperTransform(){
- wrapper.style.transform=`translate(${originX}px,${originY}px) scale(${scale})`;
-}
-
-function touchDistance(first,second){
- const dx=second.clientX-first.clientX;
- const dy=second.clientY-first.clientY;
- return Math.hypot(dx,dy);
-}
-
-function touchCenter(first,second){
- return {
-  x:(first.clientX+second.clientX)/2,
-  y:(first.clientY+second.clientY)/2
- };
-}
-
-function clearLongPressTimer(){
- if(longPressTimer){
-  clearTimeout(longPressTimer);
-  longPressTimer=null;
+function hideLoading(){
+ loadingRequests=Math.max(loadingRequests-1,0);
+ if(loadingRequests===0){
+  loadingModal.style.display='none';
+  loadingMessage.textContent='Chargement...';
  }
-}
-
-function zoomAtClient(clientX,clientY,factor){
- const rect=container.getBoundingClientRect();
- const cx=clientX-rect.left;
- const cy=clientY-rect.top;
- const nextScale=clamp(scale*factor,0.2,5);
- const zoom=nextScale/scale;
- originX=cx-(cx-originX)*zoom;
- originY=cy-(cy-originY)*zoom;
- scale=nextScale;
- applyWrapperTransform();
-}
-
-function placePointAtClient(clientX,clientY){
- if(!canEditCurrentProject()) return;
- const rect=plan.getBoundingClientRect();
- tempCoords={ x:(clientX-rect.left)/rect.width, y:(clientY-rect.top)/rect.height };
- openForm();
 }
 
 function applyViewportTransform(){
@@ -630,16 +582,18 @@ function openForm(h=null){
 
 function closeForm(){ formModal.style.display='none'; }
 
-function saveHotspot(){
+async function saveHotspot(){
  if(!canEditCurrentProject()) return;
  const files=imagesInput.files;
  const type=pointType.value;
  const value=type==='emoji'?(emoji.value||'📍'):color.value;
- Promise.all([...files].map(f=>{
-  const formData=new FormData();
-  formData.append('file',f);
-  return apiFetch('/upload',{method:'POST',body:formData}).then(r=>r.text());
- })).then(urls=>{
+ showLoading(files.length?'Upload des images du point...':'Sauvegarde du point...');
+ try{
+  const urls=await Promise.all([...files].map(f=>{
+   const formData=new FormData();
+   formData.append('file',f);
+   return apiFetch('/upload',{method:'POST',body:formData}).then(r=>r.text());
+  }));
   if(editingId){
    const h=hotspots.find(x=>x.id===editingId);
    h.title=title.value;
@@ -652,8 +606,12 @@ function saveHotspot(){
   }
   refresh();
   closeForm();
-    saveProject();
- });
+  await saveProject();
+ }catch(_err){
+  setSaveStatus('Erreur upload/sauvegarde du point',true);
+ }finally{
+  hideLoading();
+ }
 }
 
 function createHotspotElement(h){
@@ -700,13 +658,18 @@ async function openView(h){
  editHotspotBtn.style.display=canEdit?'inline-block':'none';
  deleteHotspotBtn.style.display=canEdit?'inline-block':'none';
 
- const resolvedSources=await Promise.all((h.images||[]).map(resolveImageUrl));
- resolvedSources.forEach(src=>{
-  const img=document.createElement('img');
-  img.src=src;
-  img.onclick=()=>showFullImage(src);
-  viewGallery.appendChild(img);
- });
+ showLoading('Téléchargement des images...');
+ try{
+  const resolvedSources=await Promise.all((h.images||[]).map(resolveImageUrl));
+  resolvedSources.forEach(src=>{
+   const img=document.createElement('img');
+   img.src=src;
+   img.onclick=()=>showFullImage(src);
+   viewGallery.appendChild(img);
+  });
+ }finally{
+  hideLoading();
+ }
  viewModal.style.display='flex';
  pushMobileBackState();
 }
@@ -826,6 +789,7 @@ async function confirmCreateProject(){
  const publicAccess=sanitizePublicAccess(newProjectPublicAccessInput.value);
  newProjectNameInput.value=projectName;
  newProjectError.textContent='';
+ showLoading('Création du projet...');
  try{
   const image=await readFileAsDataUrl(selectedFile);
   const response=await apiFetch('/project/create',{
@@ -845,6 +809,8 @@ async function confirmCreateProject(){
   setSaveStatus(`Projet créé: ${currentProjectName}`);
  }catch(_err){
   newProjectError.textContent='Erreur lors de la création du projet.';
+ }finally{
+  hideLoading();
  }
 }
 
@@ -924,11 +890,17 @@ async function duplicateProject(){
 }
 
 async function loadProjectById(projectId){
- const response=await apiFetch(`/project/${encodeURIComponent(projectId)}`);
- if(!response.ok) throw new Error('project not found');
- const data=await response.json();
- applyLoadedProject(data,data.projectName);
- closeProjectList();
+ showLoading('Ouverture du projet...');
+ try{
+  const response=await apiFetch(`/project/${encodeURIComponent(projectId)}`);
+  if(!response.ok) throw new Error('project not found');
+  const data=await response.json();
+  applyLoadedProject(data,data.projectName);
+  closeProjectList();
+  setSaveStatus(`Loaded: ${currentProjectName}`);
+ }finally{
+  hideLoading();
+ }
 }
 
 async function renameProjectFromList(project){
