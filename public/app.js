@@ -529,6 +529,10 @@ container.addEventListener('pointerdown',e=>{
     tryOpenCreatePointAt(e.clientX,e.clientY);
    },520);
   }
+
+  if(!hotspotTarget && !container.hasPointerCapture(e.pointerId)){
+   container.setPointerCapture(e.pointerId);
+  }
  }
 
  if(hotspotTarget){
