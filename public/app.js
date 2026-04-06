@@ -188,14 +188,6 @@ function vectorSubtract(p1,p2){
  return {x:p1.x-p2.x,y:p1.y-p2.y};
 }
 
-function vectorAdd(p,v){
- return {x:p.x+v.x,y:p.y+v.y};
-}
-
-function vectorScale(v,s){
- return {x:v.x*s,y:v.y*s};
-}
-
 function beginPinchIfPossible(){
  const pair=getFirstTwoTouchPoints();
  if(!pair) return;
@@ -643,23 +635,25 @@ container.addEventListener('pointermove',e=>{
   const movementA=vectorSubtract(a,pinchPointAStart);
   const movementB=vectorSubtract(b,pinchPointBStart);
   
-  // Calculate dot products (projections along AB)
+  // Calculate dot products (projections along AB direction)
   const dotA=dotProduct(movementA,pinchVectorAB);
   const dotB=dotProduct(movementB,pinchVectorAB);
   
-  // Calculate zoom origin position along AB
+  // Symmetric zoom center: the finger that moves less (or not at all) is the pivot point
   const absDotA=Math.abs(dotA);
   const absDotB=Math.abs(dotB);
-  const sumDots=absDotA+absDotB;
   
   let zoomOriginX,zoomOriginY;
-  if(sumDots>0.1){
-   const t=absDotA/sumDots; // position along AB (0 at A, 1 at B)
-   const tempOrigin=vectorAdd(a,vectorScale(pinchVectorAB,t));
-   zoomOriginX=tempOrigin.x;
-   zoomOriginY=tempOrigin.y;
+  if(absDotA<absDotB){
+   // A moved less along AB, so zoom from A
+   zoomOriginX=a.x;
+   zoomOriginY=a.y;
+  } else if(absDotB<absDotA){
+   // B moved less along AB, so zoom from B
+   zoomOriginX=b.x;
+   zoomOriginY=b.y;
   } else {
-   // If movements are too small, use midpoint
+   // Both moved equally, use midpoint
    const midpoint=centerBetweenPoints(a,b);
    zoomOriginX=midpoint.x;
    zoomOriginY=midpoint.y;
