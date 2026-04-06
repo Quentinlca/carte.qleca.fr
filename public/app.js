@@ -90,11 +90,13 @@ let currentUsername='';
 let scale=1, originX=0, originY=0;
 let isDragging=false, moved=false, startX,startY;
 let loadingRequests=0;
+let shouldRecenterOnResize=false;
 
 function showLoading(message='Chargement...'){
  loadingRequests+=1;
  loadingMessage.textContent=message;
  loadingModal.style.display='flex';
+ document.body.style.overflow='hidden';
 }
 
 function hideLoading(){
@@ -102,6 +104,7 @@ function hideLoading(){
  if(loadingRequests===0){
   loadingModal.style.display='none';
   loadingMessage.textContent='Chargement...';
+  document.body.style.overflow='';
  }
 }
 
@@ -123,6 +126,7 @@ function centerPlanInViewport(){
 }
 
 function scheduleCenterPlan(){
+ shouldRecenterOnResize=true;
  if(!plan.src){
   scale=1;
   originX=0;
@@ -350,6 +354,7 @@ async function logout(){
 
 container.addEventListener('wheel',e=>{
  e.preventDefault();
+ shouldRecenterOnResize=false;
  const rect=container.getBoundingClientRect();
  const mouseX=e.clientX-rect.left;
  const mouseY=e.clientY-rect.top;
@@ -365,6 +370,7 @@ container.addEventListener('wheel',e=>{
 container.addEventListener('mousedown',e=>{
  if(e.button!==0) return;
  e.preventDefault();
+ shouldRecenterOnResize=false;
  isDragging=true; moved=false;
  startX=e.clientX-originX; startY=e.clientY-originY;
  container.style.cursor='grabbing';
@@ -382,123 +388,10 @@ window.addEventListener('mouseup',()=>{
  container.style.cursor='default';
 });
 
-container.addEventListener('touchstart',e=>{
- longPressTriggered=false;
- if(e.touches.length===1){
-  const touch=e.touches[0];
-  isDragging=true;
-  touchMode='pan';
-  moved=false;
-  longPressTriggered=false;
-  startX=touch.clientX-originX;
-  startY=touch.clientY-originY;
-  touchPanStartClientX=touch.clientX;
-  touchPanStartClientY=touch.clientY;
-  touchLastClientX=touch.clientX;
-  touchLastClientY=touch.clientY;
-
-  clearLongPressTimer();
-  if(canEditCurrentProject()){
-   longPressTimer=setTimeout(()=>{
-    if(touchMode==='pan' && !moved){
-      longPressTriggered=true;
-      isDragging=false;
-      placePointAtClient(touchLastClientX,touchLastClientY);
-    }
-   },MOBILE_LONG_PRESS_MS);
-  }
- }
-
- if(e.touches.length===2){
-  clearLongPressTimer();
-  const first=e.touches[0];
-  const second=e.touches[1];
-  isDragging=false;
-  touchMode='pinch';
-  moved=true;
-  touchStartDistance=touchDistance(first,second);
-  touchStartScale=scale;
- }
-},{passive:false});
-
-container.addEventListener('touchmove',e=>{
- if(touchMode==='pan' && e.touches.length===1){
-  e.preventDefault();
-  const touch=e.touches[0];
-  touchLastClientX=touch.clientX;
-  touchLastClientY=touch.clientY;
-  const movedDistance=Math.hypot(touch.clientX-touchPanStartClientX,touch.clientY-touchPanStartClientY);
-  if(movedDistance>MOBILE_MOVE_CANCEL_PX){
-   clearLongPressTimer();
-  }
-  if(originX!==touch.clientX-startX || originY!==touch.clientY-startY) moved=true;
-  originX=touch.clientX-startX;
-  originY=touch.clientY-startY;
-  applyWrapperTransform();
-  return;
- }
-
- if(touchMode==='pinch' && e.touches.length===2){
-  e.preventDefault();
-  const first=e.touches[0];
-  const second=e.touches[1];
-  const center=touchCenter(first,second);
-  const rect=container.getBoundingClientRect();
-  const cx=center.x-rect.left;
-  const cy=center.y-rect.top;
-  const currentDistance=touchDistance(first,second);
-  const nextScale=clamp(touchStartScale*(currentDistance/touchStartDistance),0.2,5);
-  const zoom=nextScale/scale;
-  originX=cx-(cx-originX)*zoom;
-  originY=cy-(cy-originY)*zoom;
-  scale=nextScale;
-  applyWrapperTransform();
- }
-},{passive:false});
-
-container.addEventListener('touchend',e=>{
- clearLongPressTimer();
-
- if(e.touches.length===0){
-  isDragging=false;
-  const changed=e.changedTouches && e.changedTouches[0] ? e.changedTouches[0] : null;
-  if(changed){
-   touchLastClientX=changed.clientX;
-   touchLastClientY=changed.clientY;
-  }
-
-  if(touchMode==='pan' && !moved && !longPressTriggered){
-   const now=Date.now();
-   const delta=now-lastTapTime;
-   const distance=Math.hypot(touchLastClientX-lastTapX,touchLastClientY-lastTapY);
-   if(delta<=MOBILE_DOUBLE_TAP_MS && distance<=MOBILE_DOUBLE_TAP_DISTANCE){
-    zoomAtClient(touchLastClientX,touchLastClientY,1.8);
-    lastTapTime=0;
-   }else{
-    lastTapTime=now;
-    lastTapX=touchLastClientX;
-    lastTapY=touchLastClientY;
-   }
-  }
-
-  longPressTriggered=false;
-  touchMode='none';
-  return;
- }
-
- if(e.touches.length===1){
-  const touch=e.touches[0];
-  touchMode='pan';
-  startX=touch.clientX-originX;
-  startY=touch.clientY-originY;
- }
-});
-
-container.addEventListener('touchcancel',()=>{
- clearLongPressTimer();
- isDragging=false;
- longPressTriggered=false;
- touchMode='none';
+window.addEventListener('resize',()=>{
+ if(!shouldRecenterOnResize) return;
+ if(!currentProjectId || !plan.src) return;
+ requestAnimationFrame(centerPlanInViewport);
 });
 
 container.addEventListener('click',e=>{
@@ -806,6 +699,7 @@ async function confirmCreateProject(){
   currentProjectUpdatedAt=result.project.updatedAt||null;
   projectNameCustomized=true;
   closeNewProjectModal();
+  scheduleCenterPlan();
   setSaveStatus(`Projet créé: ${currentProjectName}`);
  }catch(_err){
   newProjectError.textContent='Erreur lors de la création du projet.';
@@ -897,6 +791,7 @@ async function loadProjectById(projectId){
   const data=await response.json();
   applyLoadedProject(data,data.projectName);
   closeProjectList();
+  scheduleCenterPlan();
   setSaveStatus(`Loaded: ${currentProjectName}`);
  }finally{
   hideLoading();
