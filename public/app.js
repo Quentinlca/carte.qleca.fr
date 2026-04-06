@@ -95,6 +95,19 @@ let activePointerId=null;
 let panVelocityX=0, panVelocityY=0;
 let lastPanSampleAt=0;
 let inertiaFrameId=0;
+let longPressTimer=0;
+let longPressTriggered=false;
+let longPressPointerId=null;
+let longPressStartX=0;
+let longPressStartY=0;
+let lastTapAt=0;
+let lastTapX=0;
+let lastTapY=0;
+const activeTouchPoints=new Map();
+let pinchStartDistance=0;
+let pinchStartScale=1;
+let pinchStartOriginX=0;
+let pinchStartOriginY=0;
 
 function stopInertiaPan(){
  if(!inertiaFrameId) return;
@@ -102,6 +115,67 @@ function stopInertiaPan(){
  inertiaFrameId=0;
  panVelocityX=0;
  panVelocityY=0;
+}
+
+function clearLongPressTimer(){
+ if(!longPressTimer) return;
+ clearTimeout(longPressTimer);
+ longPressTimer=0;
+}
+
+function cancelLongPress(){
+ clearLongPressTimer();
+ longPressPointerId=null;
+}
+
+function containerPointFromClient(clientX,clientY){
+ const rect=container.getBoundingClientRect();
+ return { x:clientX-rect.left, y:clientY-rect.top };
+}
+
+function applyZoomAt(containerX,containerY,zoomFactor){
+ if(!Number.isFinite(zoomFactor) || zoomFactor<=0) return;
+ const nextScale=Math.min(8,Math.max(0.2,scale*zoomFactor));
+ const ratio=nextScale/scale;
+ originX=containerX-(containerX-originX)*ratio;
+ originY=containerY-(containerY-originY)*ratio;
+ scale=nextScale;
+ applyViewportTransform();
+}
+
+function tryOpenCreatePointAt(clientX,clientY){
+ if(!canEditCurrentProject()) return;
+ const rect=plan.getBoundingClientRect();
+ if(!rect.width || !rect.height) return;
+ tempCoords={ x:(clientX-rect.left)/rect.width, y:(clientY-rect.top)/rect.height };
+ openForm();
+}
+
+function getFirstTwoTouchPoints(){
+ const values=[...activeTouchPoints.values()];
+ if(values.length<2) return null;
+ return [values[0],values[1]];
+}
+
+function distanceBetweenPoints(a,b){
+ const dx=a.x-b.x;
+ const dy=a.y-b.y;
+ return Math.hypot(dx,dy);
+}
+
+function centerBetweenPoints(a,b){
+ return { x:(a.x+b.x)/2, y:(a.y+b.y)/2 };
+}
+
+function beginPinchIfPossible(){
+ const pair=getFirstTwoTouchPoints();
+ if(!pair) return;
+ const [a,b]=pair;
+ pinchStartDistance=distanceBetweenPoints(a,b);
+ if(pinchStartDistance<4) return;
+ pinchStartScale=scale;
+ pinchStartOriginX=originX;
+ pinchStartOriginY=originY;
 }
 
 function startInertiaPan(){
@@ -403,17 +477,48 @@ container.addEventListener('wheel',e=>{
  const mouseX=e.clientX-rect.left;
  const mouseY=e.clientY-rect.top;
  const zoom=e.deltaY<0?1.05:0.95;
-
- originX=mouseX-(mouseX-originX)*zoom;
- originY=mouseY-(mouseY-originY)*zoom;
- scale*=zoom;
-
- applyViewportTransform();
+ applyZoomAt(mouseX,mouseY,zoom);
 });
 
 container.addEventListener('pointerdown',e=>{
  if(!e.isPrimary) return;
  if(e.pointerType==='mouse' && e.button!==0) return;
+ const hotspotTarget=e.target?.closest?.('.hotspot');
+
+ if(e.pointerType==='touch'){
+  longPressTriggered=false;
+  activeTouchPoints.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(activeTouchPoints.size>=2){
+   shouldRecenterOnResize=false;
+   stopInertiaPan();
+   cancelLongPress();
+   beginPinchIfPossible();
+   moved=true;
+   return;
+  }
+
+  if(!hotspotTarget && canEditCurrentProject()){
+   longPressTriggered=false;
+   longPressPointerId=e.pointerId;
+   longPressStartX=e.clientX;
+   longPressStartY=e.clientY;
+   clearLongPressTimer();
+   longPressTimer=setTimeout(()=>{
+    if(longPressPointerId!==e.pointerId) return;
+    longPressTriggered=true;
+    cancelLongPress();
+    isDragging=false;
+    activePointerId=null;
+    container.style.cursor='default';
+    tryOpenCreatePointAt(e.clientX,e.clientY);
+   },520);
+  }
+ }
+
+ if(hotspotTarget){
+  return;
+ }
+
  e.preventDefault();
  shouldRecenterOnResize=false;
  stopInertiaPan();
@@ -430,6 +535,39 @@ container.addEventListener('pointerdown',e=>{
 });
 
 container.addEventListener('pointermove',e=>{
+ if(e.pointerType==='touch' && activeTouchPoints.has(e.pointerId)){
+  activeTouchPoints.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ }
+
+ if(longPressPointerId===e.pointerId){
+  const movedSinceDown=Math.hypot(e.clientX-longPressStartX,e.clientY-longPressStartY);
+  if(movedSinceDown>10){
+   cancelLongPress();
+  }
+ }
+
+ if(e.pointerType==='touch' && activeTouchPoints.size>=2){
+  e.preventDefault();
+  const pair=getFirstTwoTouchPoints();
+  if(!pair || pinchStartDistance<4 || !Number.isFinite(pinchStartScale) || pinchStartScale<=0){
+   return;
+  }
+
+  const [a,b]=pair;
+  const currentDistance=distanceBetweenPoints(a,b);
+  if(currentDistance<4) return;
+  const center=centerBetweenPoints(a,b);
+  const zoomFactor=currentDistance/pinchStartDistance;
+  const nextScale=Math.min(8,Math.max(0.2,pinchStartScale*zoomFactor));
+  const ratio=nextScale/pinchStartScale;
+  originX=center.x-(center.x-pinchStartOriginX)*ratio;
+  originY=center.y-(center.y-pinchStartOriginY)*ratio;
+  scale=nextScale;
+  moved=true;
+  applyViewportTransform();
+  return;
+ }
+
  if(!isDragging || e.pointerId!==activePointerId) return;
  e.preventDefault();
 
@@ -456,6 +594,14 @@ container.addEventListener('pointermove',e=>{
 });
 
 function endPointerPan(e){
+ if(e.pointerType==='touch'){
+  activeTouchPoints.delete(e.pointerId);
+  if(activeTouchPoints.size<2){
+   pinchStartDistance=0;
+  }
+ }
+ cancelLongPress();
+
  if(e.pointerId!==activePointerId) return;
  const wasDragging=isDragging;
  const pointerType=e.pointerType;
@@ -470,11 +616,33 @@ function endPointerPan(e){
  if(wasDragging && moved && pointerType==='touch'){
   startInertiaPan();
  }
+
+ if(pointerType==='touch' && !moved && !longPressTriggered){
+  const now=Date.now();
+  const pt=containerPointFromClient(e.clientX,e.clientY);
+  const isDoubleTap=(now-lastTapAt)<300 && Math.hypot(pt.x-lastTapX,pt.y-lastTapY)<28;
+  if(isDoubleTap){
+   shouldRecenterOnResize=false;
+   applyZoomAt(pt.x,pt.y,1.5);
+   lastTapAt=0;
+  }else{
+   lastTapAt=now;
+   lastTapX=pt.x;
+   lastTapY=pt.y;
+  }
+ }
 }
 
 container.addEventListener('pointerup',endPointerPan);
 container.addEventListener('pointercancel',endPointerPan);
 container.addEventListener('lostpointercapture',e=>{
+ if(e.pointerType==='touch'){
+  activeTouchPoints.delete(e.pointerId);
+  if(activeTouchPoints.size<2){
+   pinchStartDistance=0;
+  }
+ }
+ cancelLongPress();
  if(e.pointerId!==activePointerId) return;
  isDragging=false;
  activePointerId=null;
