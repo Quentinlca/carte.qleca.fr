@@ -7,7 +7,7 @@ body { margin:0; font-family:Arial; overflow:hidden; }
 #saveStatus { font-size:13px; opacity:0.9; }
 #toolbar { position:relative; z-index:1000; background:#222; color:#fff; padding:10px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
 #toolbar button,label { margin-right:0; }
-#plan-container { width:100%; height:calc(100vh - 92px); height:calc(100dvh - 92px); background:#eee; overflow:hidden; cursor:default; position:relative; }
+#plan-container { width:100%; height:calc(100vh - 92px); height:calc(100dvh - 92px); background:#eee; overflow:hidden; cursor:default; position:relative; touch-action:none; }
 #plan-wrapper { position:absolute; transform-origin:top left; }
 #plan { display:block; max-width:none; user-select:none; -webkit-user-drag:none; }
 .hotspot {

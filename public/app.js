@@ -91,6 +91,50 @@ let scale=1, originX=0, originY=0;
 let isDragging=false, moved=false, startX,startY;
 let loadingRequests=0;
 let shouldRecenterOnResize=false;
+let activePointerId=null;
+let panVelocityX=0, panVelocityY=0;
+let lastPanSampleAt=0;
+let inertiaFrameId=0;
+
+function stopInertiaPan(){
+ if(!inertiaFrameId) return;
+ cancelAnimationFrame(inertiaFrameId);
+ inertiaFrameId=0;
+ panVelocityX=0;
+ panVelocityY=0;
+}
+
+function startInertiaPan(){
+ const minStartSpeed=0.03;
+ if(Math.hypot(panVelocityX,panVelocityY)<minStartSpeed) return;
+
+ if(inertiaFrameId){
+  cancelAnimationFrame(inertiaFrameId);
+ }
+
+ let lastTs=performance.now();
+ const step=ts=>{
+  const dt=Math.min(Math.max(ts-lastTs,1),34);
+  lastTs=ts;
+
+  originX+=panVelocityX*dt;
+  originY+=panVelocityY*dt;
+  applyViewportTransform();
+
+  const decay=Math.pow(0.9,dt/16.67);
+  panVelocityX*=decay;
+  panVelocityY*=decay;
+
+  if(Math.hypot(panVelocityX,panVelocityY)<0.01){
+   stopInertiaPan();
+   return;
+  }
+
+  inertiaFrameId=requestAnimationFrame(step);
+ };
+
+ inertiaFrameId=requestAnimationFrame(step);
+}
 
 function showLoading(message='Chargement...'){
  loadingRequests+=1;
@@ -367,24 +411,73 @@ container.addEventListener('wheel',e=>{
  applyViewportTransform();
 });
 
-container.addEventListener('mousedown',e=>{
- if(e.button!==0) return;
+container.addEventListener('pointerdown',e=>{
+ if(!e.isPrimary) return;
+ if(e.pointerType==='mouse' && e.button!==0) return;
  e.preventDefault();
  shouldRecenterOnResize=false;
- isDragging=true; moved=false;
- startX=e.clientX-originX; startY=e.clientY-originY;
+ stopInertiaPan();
+ activePointerId=e.pointerId;
+ isDragging=true;
+ moved=false;
+ startX=e.clientX-originX;
+ startY=e.clientY-originY;
+ lastPanSampleAt=performance.now();
+ panVelocityX=0;
+ panVelocityY=0;
  container.style.cursor='grabbing';
+ container.setPointerCapture(e.pointerId);
 });
 
-window.addEventListener('mousemove',e=>{
- if(!isDragging) return;
- if (originX!==e.clientX-startX || originY!==e.clientY-startY) moved=true;
- originX=e.clientX-startX; originY=e.clientY-startY;
+container.addEventListener('pointermove',e=>{
+ if(!isDragging || e.pointerId!==activePointerId) return;
+ e.preventDefault();
+
+ const nextOriginX=e.clientX-startX;
+ const nextOriginY=e.clientY-startY;
+ const deltaX=nextOriginX-originX;
+ const deltaY=nextOriginY-originY;
+
+ if(Math.abs(deltaX)>0.5 || Math.abs(deltaY)>0.5){
+  moved=true;
+ }
+
+ const now=performance.now();
+ const dt=Math.max(now-lastPanSampleAt,1);
+ const instantVX=deltaX/dt;
+ const instantVY=deltaY/dt;
+ panVelocityX=panVelocityX*0.75+instantVX*0.25;
+ panVelocityY=panVelocityY*0.75+instantVY*0.25;
+ lastPanSampleAt=now;
+
+ originX=nextOriginX;
+ originY=nextOriginY;
  applyViewportTransform();
 });
 
-window.addEventListener('mouseup',()=>{
+function endPointerPan(e){
+ if(e.pointerId!==activePointerId) return;
+ const wasDragging=isDragging;
+ const pointerType=e.pointerType;
  isDragging=false;
+ activePointerId=null;
+ container.style.cursor='default';
+
+ if(container.hasPointerCapture(e.pointerId)){
+  container.releasePointerCapture(e.pointerId);
+ }
+
+ if(wasDragging && moved && pointerType==='touch'){
+  startInertiaPan();
+ }
+}
+
+container.addEventListener('pointerup',endPointerPan);
+container.addEventListener('pointercancel',endPointerPan);
+container.addEventListener('lostpointercapture',e=>{
+ if(e.pointerId!==activePointerId) return;
+ isDragging=false;
+ activePointerId=null;
  container.style.cursor='default';
 });
 
