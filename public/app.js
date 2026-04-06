@@ -23,6 +23,8 @@ const editHotspotBtn=document.getElementById('editHotspotBtn');
 const deleteHotspotBtn=document.getElementById('deleteHotspotBtn');
 const imageModal=document.getElementById('imageModal');
 const fullImage=document.getElementById('fullImage');
+const loadingModal=document.getElementById('loadingModal');
+const loadingMessage=document.getElementById('loadingMessage');
 
 const projectNameText=document.getElementById('projectNameText');
 const projectAccessBadge=document.getElementById('projectAccessBadge');
@@ -85,6 +87,21 @@ let currentUsername='';
 
 let scale=1, originX=0, originY=0;
 let isDragging=false, moved=false, startX,startY;
+let loadingRequests=0;
+
+function showLoading(message='Chargement...'){
+ loadingRequests+=1;
+ loadingMessage.textContent=message;
+ loadingModal.style.display='flex';
+}
+
+function hideLoading(){
+ loadingRequests=Math.max(loadingRequests-1,0);
+ if(loadingRequests===0){
+  loadingModal.style.display='none';
+  loadingMessage.textContent='Chargement...';
+ }
+}
 
 function applyViewportTransform(){
  wrapper.style.transform=`translate(${originX}px,${originY}px) scale(${scale})`;
@@ -378,16 +395,18 @@ function openForm(h=null){
 
 function closeForm(){ formModal.style.display='none'; }
 
-function saveHotspot(){
+async function saveHotspot(){
  if(!canEditCurrentProject()) return;
  const files=imagesInput.files;
  const type=pointType.value;
  const value=type==='emoji'?(emoji.value||'📍'):color.value;
- Promise.all([...files].map(f=>{
-  const formData=new FormData();
-  formData.append('file',f);
-  return apiFetch('/upload',{method:'POST',body:formData}).then(r=>r.text());
- })).then(urls=>{
+ showLoading(files.length?'Upload des images du point...':'Sauvegarde du point...');
+ try{
+  const urls=await Promise.all([...files].map(f=>{
+   const formData=new FormData();
+   formData.append('file',f);
+   return apiFetch('/upload',{method:'POST',body:formData}).then(r=>r.text());
+  }));
   if(editingId){
    const h=hotspots.find(x=>x.id===editingId);
    h.title=title.value;
@@ -400,8 +419,12 @@ function saveHotspot(){
   }
   refresh();
   closeForm();
-    saveProject();
- });
+  await saveProject();
+ }catch(_err){
+  setSaveStatus('Erreur upload/sauvegarde du point',true);
+ }finally{
+  hideLoading();
+ }
 }
 
 function createHotspotElement(h){
@@ -448,13 +471,18 @@ async function openView(h){
  editHotspotBtn.style.display=canEdit?'inline-block':'none';
  deleteHotspotBtn.style.display=canEdit?'inline-block':'none';
 
- const resolvedSources=await Promise.all((h.images||[]).map(resolveImageUrl));
- resolvedSources.forEach(src=>{
-  const img=document.createElement('img');
-  img.src=src;
-  img.onclick=()=>showFullImage(src);
-  viewGallery.appendChild(img);
- });
+ showLoading('Téléchargement des images...');
+ try{
+  const resolvedSources=await Promise.all((h.images||[]).map(resolveImageUrl));
+  resolvedSources.forEach(src=>{
+   const img=document.createElement('img');
+   img.src=src;
+   img.onclick=()=>showFullImage(src);
+   viewGallery.appendChild(img);
+  });
+ }finally{
+  hideLoading();
+ }
  viewModal.style.display='flex';
 }
 
@@ -568,6 +596,7 @@ async function confirmCreateProject(){
  const publicAccess=sanitizePublicAccess(newProjectPublicAccessInput.value);
  newProjectNameInput.value=projectName;
  newProjectError.textContent='';
+ showLoading('Création du projet...');
  try{
   const image=await readFileAsDataUrl(selectedFile);
   const response=await apiFetch('/project/create',{
@@ -587,6 +616,8 @@ async function confirmCreateProject(){
   setSaveStatus(`Projet créé: ${currentProjectName}`);
  }catch(_err){
   newProjectError.textContent='Erreur lors de la création du projet.';
+ }finally{
+  hideLoading();
  }
 }
 
@@ -666,12 +697,17 @@ async function duplicateProject(){
 }
 
 async function loadProjectById(projectId){
- const response=await apiFetch(`/project/${encodeURIComponent(projectId)}`);
- if(!response.ok) throw new Error('project not found');
- const data=await response.json();
- applyLoadedProject(data,data.projectName);
- closeProjectList();
- setSaveStatus(`Loaded: ${currentProjectName}`);
+ showLoading('Ouverture du projet...');
+ try{
+  const response=await apiFetch(`/project/${encodeURIComponent(projectId)}`);
+  if(!response.ok) throw new Error('project not found');
+  const data=await response.json();
+  applyLoadedProject(data,data.projectName);
+  closeProjectList();
+  setSaveStatus(`Loaded: ${currentProjectName}`);
+ }finally{
+  hideLoading();
+ }
 }
 
 async function renameProjectFromList(project){
