@@ -444,8 +444,10 @@ async function bootstrapAuth(){
   role=(receivedRole==='admin'||receivedRole==='editor')?receivedRole:'viewer';
   currentUsername=payload.user?.username||'';
   updateModeUi();
-  openProjectList();
+  await openProjectList();
+  document.body.classList.remove('booting');
  }catch(_err){
+  document.body.classList.remove('booting');
   window.location.href='/login';
  }
 }
