@@ -120,6 +120,7 @@ let pinchStartOriginX=0;
 let pinchStartOriginY=0;
 let directionPickerSession=null;
 let pendingDirectionDeg=undefined;
+let directionPickerClickGuardUntil=0;
 
 function stopInertiaPan(){
  if(!inertiaFrameId) return;
@@ -210,6 +211,26 @@ function getCurrentFormPointStyle(){
  return {type,value};
 }
 
+function snapshotFormState(){
+ return {
+  title:title.value,
+  pointType:pointType.value,
+  color:color.value,
+  emoji:emoji.value,
+  desc:desc.value
+ };
+}
+
+function restoreFormState(state){
+ if(!state) return;
+ title.value=state.title;
+ pointType.value=state.pointType;
+ togglePointTypeInput();
+ color.value=state.color;
+ setSelectedEmoji(state.emoji);
+ desc.value=state.desc;
+}
+
 function cleanupDirectionPickerSession(){
  if(!directionPickerSession) return;
  const s=directionPickerSession;
@@ -272,6 +293,7 @@ function promptDirectionSelection(hotspotDraft){
    handleEl,
    angleDeg:Number.isFinite(hotspotDraft.directionDeg)?normalizeAngleDeg(hotspotDraft.directionDeg):0,
    dragging:false,
+    movedDuringDrag:false,
    onMove:null,
    onUp:null
   };
@@ -284,6 +306,7 @@ function promptDirectionSelection(hotspotDraft){
   session.onMove=e=>{
    if(!session.dragging) return;
    e.preventDefault();
+    session.movedDuringDrag=true;
    const center=getHotspotCenterClient(hotspotDraft);
    session.angleDeg=angleFromCenterToClient(center.x,center.y,e.clientX,e.clientY);
    updateDirectionPickerVisuals(session);
@@ -291,7 +314,12 @@ function promptDirectionSelection(hotspotDraft){
 
   session.onUp=e=>{
    if(!session.dragging) return;
+    e.preventDefault();
+    e.stopPropagation();
    session.dragging=false;
+    if(session.movedDuringDrag){
+     directionPickerClickGuardUntil=performance.now()+240;
+    }
    if(handleEl.hasPointerCapture(e.pointerId)){
     handleEl.releasePointerCapture(e.pointerId);
    }
@@ -301,6 +329,7 @@ function promptDirectionSelection(hotspotDraft){
    e.preventDefault();
    e.stopPropagation();
    session.dragging=true;
+    session.movedDuringDrag=false;
    handleEl.setPointerCapture(e.pointerId);
    const center=getHotspotCenterClient(hotspotDraft);
    session.angleDeg=angleFromCenterToClient(center.x,center.y,e.clientX,e.clientY);
@@ -310,12 +339,14 @@ function promptDirectionSelection(hotspotDraft){
   skipBtn.addEventListener('click',e=>{
    e.preventDefault();
    e.stopPropagation();
+    if(performance.now()<directionPickerClickGuardUntil) return;
    complete(null);
   });
 
   confirmBtn.addEventListener('click',e=>{
    e.preventDefault();
    e.stopPropagation();
+    if(performance.now()<directionPickerClickGuardUntil) return;
    complete(normalizeAngleDeg(session.angleDeg));
   });
 
@@ -1066,6 +1097,8 @@ imagesInput.addEventListener('change',async ()=>{
   ?pendingDirectionDeg
   :(Number.isFinite(existing?.directionDeg)?existing.directionDeg:0);
 
+ const formState=snapshotFormState();
+
  formModal.style.display='none';
  const chosenDirection=await promptDirectionSelection({
   ...coords,
@@ -1074,6 +1107,7 @@ imagesInput.addEventListener('change',async ()=>{
   directionDeg:initialDirection
  });
  pendingDirectionDeg=Number.isFinite(chosenDirection)?normalizeAngleDeg(chosenDirection):null;
+ restoreFormState(formState);
  formModal.style.display='flex';
 });
 
@@ -1163,10 +1197,12 @@ function createHotspotElement(h){
   el.style.background=h.value||h.color||'#FF0000';
   // Handle color hover as a class toggle
   el.addEventListener('mouseenter',()=>{
-   el.classList.add('hovered');
+   const inverseScale=1/scale;
+   el.style.transform=`translate(-50%,-50%) scale(${inverseScale*1.18})`;
   });
   el.addEventListener('mouseleave',()=>{
-   el.classList.remove('hovered');
+   const inverseScale=1/scale;
+   el.style.transform=`translate(-50%,-50%) scale(${inverseScale})`;
   });
  }
 
