@@ -1172,7 +1172,7 @@ async function saveHotspot(){
    hotspots.push(hotspotDraft);
   }
 
-  showLoading('Sauvegarde du point...');
+  loadingMessage.textContent='Sauvegarde du point...';
   refresh();
   closeForm();
   pendingDirectionDeg=undefined;
