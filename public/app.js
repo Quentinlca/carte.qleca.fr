@@ -118,6 +118,7 @@ let pinchDistanceAB=0;
 let pinchStartScale=1;
 let pinchStartOriginX=0;
 let pinchStartOriginY=0;
+let directionPickerSession=null;
 
 function stopInertiaPan(){
  if(!inertiaFrameId) return;
@@ -140,7 +141,7 @@ function cancelLongPress(){
 
 function updateHotspotsAppearance(){
  const isZoomedOut=scale<HOTSPOT_ZOOM_THRESHOLD;
- const inverseScale=1/scale;
+ const inverseScale=scale>0?1/scale:1;
  wrapper.querySelectorAll('.hotspot').forEach(el=>{
   if(isZoomedOut){
    el.classList.add('zoomed-out');
@@ -149,6 +150,162 @@ function updateHotspotsAppearance(){
   }
   // Apply inverse scale to keep hotspot size independent of zoom
   el.style.transform=`translate(-50%,-50%) scale(${inverseScale})`;
+ });
+ wrapper.querySelectorAll('.direction-picker').forEach(el=>{
+  el.style.transform=`translate(-50%,-50%) scale(${inverseScale})`;
+ });
+}
+
+function normalizeAngleDeg(value){
+ let angle=value%360;
+ if(angle<0) angle+=360;
+ return angle;
+}
+
+function angleFromCenterToClient(centerClientX,centerClientY,clientX,clientY){
+ const dx=clientX-centerClientX;
+ const dy=clientY-centerClientY;
+ const angle=Math.atan2(dx,-dy)*(180/Math.PI);
+ return normalizeAngleDeg(angle);
+}
+
+function getHotspotCenterClient(coords){
+ const rect=plan.getBoundingClientRect();
+ return {
+  x:rect.left+coords.x*rect.width,
+  y:rect.top+coords.y*rect.height
+ };
+}
+
+function updateDirectionPickerVisuals(session){
+ const angle=normalizeAngleDeg(session.angleDeg);
+ const radians=angle*(Math.PI/180);
+ const arrowRadius=28;
+ const handleRadius=48;
+ const arrowX=Math.sin(radians)*arrowRadius;
+ const arrowY=-Math.cos(radians)*arrowRadius;
+ const handleX=Math.sin(radians)*handleRadius;
+ const handleY=-Math.cos(radians)*handleRadius;
+ session.arrowEl.style.transform=`translate(-50%,-50%) translate(${arrowX}px,${arrowY}px) rotate(${angle}deg)`;
+ session.handleEl.style.transform=`translate(-50%,-50%) translate(${handleX}px,${handleY}px)`;
+}
+
+function cleanupDirectionPickerSession(){
+ if(!directionPickerSession) return;
+ const s=directionPickerSession;
+ window.removeEventListener('pointermove',s.onMove);
+ window.removeEventListener('pointerup',s.onUp);
+ window.removeEventListener('pointercancel',s.onUp);
+ if(s.root?.parentNode){
+  s.root.parentNode.removeChild(s.root);
+ }
+ directionPickerSession=null;
+}
+
+function promptDirectionSelection(hotspotDraft){
+ cleanupDirectionPickerSession();
+ return new Promise(resolve=>{
+  const root=document.createElement('div');
+  root.className='direction-picker';
+  root.style.left=(hotspotDraft.x*100)+'%';
+  root.style.top=(hotspotDraft.y*100)+'%';
+
+  const pointEl=document.createElement('div');
+  pointEl.className='direction-picker-point';
+  if((hotspotDraft.type||'color')==='emoji'){
+   pointEl.classList.add('direction-picker-point-emoji');
+   pointEl.textContent=hotspotDraft.value||'📍';
+  }else{
+   pointEl.classList.add('direction-picker-point-color');
+   pointEl.style.background=hotspotDraft.value||'#FF0000';
+  }
+
+  const arrowEl=document.createElement('div');
+  arrowEl.className='direction-picker-arrow';
+  arrowEl.textContent='❯❯';
+
+  const handleEl=document.createElement('div');
+  handleEl.className='direction-picker-handle';
+
+  const actionsEl=document.createElement('div');
+  actionsEl.className='direction-picker-actions';
+  const skipBtn=document.createElement('button');
+  skipBtn.type='button';
+  skipBtn.className='direction-picker-btn direction-picker-btn-skip';
+  skipBtn.textContent='X';
+  const confirmBtn=document.createElement('button');
+  confirmBtn.type='button';
+  confirmBtn.className='direction-picker-btn direction-picker-btn-confirm';
+  confirmBtn.textContent='✓';
+  actionsEl.appendChild(skipBtn);
+  actionsEl.appendChild(confirmBtn);
+
+  root.appendChild(pointEl);
+  root.appendChild(arrowEl);
+  root.appendChild(handleEl);
+  root.appendChild(actionsEl);
+  wrapper.appendChild(root);
+
+  const session={
+   root,
+   arrowEl,
+   handleEl,
+   angleDeg:Number.isFinite(hotspotDraft.directionDeg)?normalizeAngleDeg(hotspotDraft.directionDeg):0,
+   dragging:false,
+   onMove:null,
+   onUp:null
+  };
+
+  const complete=directionDeg=>{
+   cleanupDirectionPickerSession();
+   resolve(directionDeg);
+  };
+
+  session.onMove=e=>{
+   if(!session.dragging) return;
+   e.preventDefault();
+   const center=getHotspotCenterClient(hotspotDraft);
+   session.angleDeg=angleFromCenterToClient(center.x,center.y,e.clientX,e.clientY);
+   updateDirectionPickerVisuals(session);
+  };
+
+  session.onUp=e=>{
+   if(!session.dragging) return;
+   session.dragging=false;
+   if(handleEl.hasPointerCapture(e.pointerId)){
+    handleEl.releasePointerCapture(e.pointerId);
+   }
+  };
+
+  handleEl.addEventListener('pointerdown',e=>{
+   e.preventDefault();
+   e.stopPropagation();
+   session.dragging=true;
+   handleEl.setPointerCapture(e.pointerId);
+   const center=getHotspotCenterClient(hotspotDraft);
+   session.angleDeg=angleFromCenterToClient(center.x,center.y,e.clientX,e.clientY);
+   updateDirectionPickerVisuals(session);
+  });
+
+  skipBtn.addEventListener('click',e=>{
+   e.preventDefault();
+   e.stopPropagation();
+   complete(null);
+  });
+
+  confirmBtn.addEventListener('click',e=>{
+   e.preventDefault();
+   e.stopPropagation();
+   complete(normalizeAngleDeg(session.angleDeg));
+  });
+
+  window.addEventListener('pointermove',session.onMove);
+  window.addEventListener('pointerup',session.onUp);
+  window.addEventListener('pointercancel',session.onUp);
+
+  directionPickerSession=session;
+  updateDirectionPickerVisuals(session);
+  updateHotspotsAppearance();
  });
 }
 
@@ -842,6 +999,7 @@ document.addEventListener('click',event=>{
 
 function openForm(h=null){
  if(!canEditCurrentProject()) return;
+ cleanupDirectionPickerSession();
  formModal.style.display='flex';
  pushMobileBackState();
  if(h){
@@ -856,6 +1014,7 @@ function openForm(h=null){
    color.value=h.value||h.color||'#FF0000';
   }
   desc.value=h.desc;
+  imagesInput.value='';
  }else{
   editingId=null;
   title.value='';
@@ -882,22 +1041,53 @@ async function saveHotspot(){
    formData.append('file',f);
    return apiFetch('/upload',{method:'POST',body:formData}).then(r=>r.text());
   }));
+  hideLoading();
+
+  let hotspotDraft;
   if(editingId){
-   const h=hotspots.find(x=>x.id===editingId);
-   h.title=title.value;
-   h.type=type;
-   h.value=value;
-   h.desc=desc.value;
-   if(urls.length) h.images=urls;
+   const existing=hotspots.find(x=>x.id===editingId);
+   if(!existing) throw new Error('hotspot not found');
+   hotspotDraft={
+    ...existing,
+    title:title.value,
+    type,
+    value,
+    desc:desc.value,
+    images:urls.length?urls:(existing.images||[])
+   };
   }else{
-   hotspots.push({id:Date.now(),...tempCoords,title:title.value,type,value,desc:desc.value,images:urls});
+   hotspotDraft={
+    id:Date.now(),
+    ...tempCoords,
+    title:title.value,
+    type,
+    value,
+    desc:desc.value,
+    images:urls,
+    directionDeg:null
+   };
   }
+
+  if(urls.length){
+   closeForm();
+   const chosenDirection=await promptDirectionSelection(hotspotDraft);
+   hotspotDraft.directionDeg=Number.isFinite(chosenDirection)?normalizeAngleDeg(chosenDirection):null;
+  }
+
+  if(editingId){
+   hotspots=hotspots.map(h=>h.id===editingId?hotspotDraft:h);
+  }else{
+   hotspots.push(hotspotDraft);
+  }
+
+  showLoading('Sauvegarde du point...');
   refresh();
   closeForm();
   await saveProject();
  }catch(_err){
   setSaveStatus('Erreur upload/sauvegarde du point',true);
  }finally{
+  cleanupDirectionPickerSession();
   hideLoading();
  }
 }
@@ -933,6 +1123,15 @@ function createHotspotElement(h){
    el.classList.remove('hovered');
   });
  }
+
+ if(Number.isFinite(h.directionDeg)){
+  const directionEl=document.createElement('div');
+  directionEl.className='hotspot-direction';
+  directionEl.textContent='❯❯';
+  directionEl.style.transform=`translate(-50%,-50%) rotate(${normalizeAngleDeg(h.directionDeg)}deg)`;
+  el.appendChild(directionEl);
+ }
+
  wrapper.appendChild(el);
 }
 

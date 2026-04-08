@@ -43,6 +43,99 @@ body.booting #plan-container {
   justify-content:center;
   font-size:40px;
 }
+.hotspot-direction {
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform-origin:50% 50%;
+  font-size:18px;
+  color:#2f2f2f;
+  text-shadow:0 1px 2px rgba(255,255,255,0.7);
+  pointer-events:none;
+}
+.hotspot.zoomed-out .hotspot-direction {
+  display:none;
+}
+
+.direction-picker {
+  position:absolute;
+  left:0;
+  top:0;
+  z-index:40;
+  transform:translate(-50%,-50%);
+  pointer-events:none;
+}
+.direction-picker-point {
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+}
+.direction-picker-point-color {
+  width:20px;
+  height:20px;
+  border-radius:50%;
+  border:2px solid #fff;
+  box-shadow:0 0 0 1px rgba(0,0,0,0.3);
+}
+.direction-picker-point-emoji {
+  width:56px;
+  height:56px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:40px;
+}
+.direction-picker-arrow {
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform-origin:50% 50%;
+  font-size:18px;
+  color:#1f1f1f;
+  text-shadow:0 1px 2px rgba(255,255,255,0.75);
+  pointer-events:none;
+}
+.direction-picker-handle {
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:20px;
+  height:20px;
+  border-radius:50%;
+  border:2px solid #3d3d3d;
+  background:#fff;
+  box-shadow:0 2px 6px rgba(0,0,0,0.25);
+  pointer-events:auto;
+  cursor:grab;
+}
+.direction-picker-handle:active {
+  cursor:grabbing;
+}
+.direction-picker-actions {
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-84px);
+  display:flex;
+  gap:8px;
+  pointer-events:auto;
+}
+.direction-picker-btn {
+  width:30px;
+  height:30px;
+  border-radius:50%;
+  border:1px solid #666;
+  background:#fff;
+  cursor:pointer;
+  font-weight:700;
+}
+.direction-picker-btn-skip {
+  color:#444;
+}
+.direction-picker-btn-confirm {
+  color:#1d7a26;
+}
 #emojiSelectorRow { display:flex; align-items:center; gap:10px; margin:8px 0; }
 #emojiPickerBtn { padding:6px 10px; min-width:52px; font-size:24px; line-height:1; cursor:pointer; }
 #emojiPicker { width:min(100%, 360px); max-height:320px; }
