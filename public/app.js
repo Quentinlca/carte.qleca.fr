@@ -119,6 +119,7 @@ let pinchStartScale=1;
 let pinchStartOriginX=0;
 let pinchStartOriginY=0;
 let directionPickerSession=null;
+let pendingDirectionDeg=undefined;
 
 function stopInertiaPan(){
  if(!inertiaFrameId) return;
@@ -186,8 +187,27 @@ function updateDirectionPickerVisuals(session){
  const arrowY=-Math.cos(radians)*arrowRadius;
  const handleX=Math.sin(radians)*handleRadius;
  const handleY=-Math.cos(radians)*handleRadius;
- session.arrowEl.style.transform=`translate(-50%,-50%) translate(${arrowX}px,${arrowY}px) rotate(${angle}deg)`;
+ session.arrowEl.style.transform=`translate(-50%,-50%) translate(${arrowX}px,${arrowY}px) rotate(${angle-90}deg)`;
  session.handleEl.style.transform=`translate(-50%,-50%) translate(${handleX}px,${handleY}px)`;
+}
+
+function getDirectionPickerCoords(){
+ if(editingId){
+  const existing=hotspots.find(h=>h.id===editingId);
+  if(existing && Number.isFinite(existing.x) && Number.isFinite(existing.y)){
+   return {x:existing.x,y:existing.y};
+  }
+ }
+ if(tempCoords && Number.isFinite(tempCoords.x) && Number.isFinite(tempCoords.y)){
+  return {x:tempCoords.x,y:tempCoords.y};
+ }
+ return null;
+}
+
+function getCurrentFormPointStyle(){
+ const type=pointType.value;
+ const value=type==='emoji'?(emoji.value||'📍'):color.value;
+ return {type,value};
 }
 
 function cleanupDirectionPickerSession(){
@@ -1000,6 +1020,7 @@ document.addEventListener('click',event=>{
 function openForm(h=null){
  if(!canEditCurrentProject()) return;
  cleanupDirectionPickerSession();
+ pendingDirectionDeg=undefined;
  formModal.style.display='flex';
  pushMobileBackState();
  if(h){
@@ -1029,6 +1050,33 @@ function openForm(h=null){
 
 function closeForm(){ formModal.style.display='none'; }
 
+imagesInput.addEventListener('change',async ()=>{
+ if(!canEditCurrentProject()) return;
+ if(!imagesInput.files || imagesInput.files.length===0){
+  pendingDirectionDeg=undefined;
+  return;
+ }
+
+ const coords=getDirectionPickerCoords();
+ if(!coords) return;
+
+ const {type,value}=getCurrentFormPointStyle();
+ const existing=editingId?hotspots.find(h=>h.id===editingId):null;
+ const initialDirection=Number.isFinite(pendingDirectionDeg)
+  ?pendingDirectionDeg
+  :(Number.isFinite(existing?.directionDeg)?existing.directionDeg:0);
+
+ formModal.style.display='none';
+ const chosenDirection=await promptDirectionSelection({
+  ...coords,
+  type,
+  value,
+  directionDeg:initialDirection
+ });
+ pendingDirectionDeg=Number.isFinite(chosenDirection)?normalizeAngleDeg(chosenDirection):null;
+ formModal.style.display='flex';
+});
+
 async function saveHotspot(){
  if(!canEditCurrentProject()) return;
  const files=imagesInput.files;
@@ -1041,8 +1089,6 @@ async function saveHotspot(){
    formData.append('file',f);
    return apiFetch('/upload',{method:'POST',body:formData}).then(r=>r.text());
   }));
-  hideLoading();
-
   let hotspotDraft;
   if(editingId){
    const existing=hotspots.find(x=>x.id===editingId);
@@ -1053,7 +1099,10 @@ async function saveHotspot(){
     type,
     value,
     desc:desc.value,
-    images:urls.length?urls:(existing.images||[])
+    images:urls.length?urls:(existing.images||[]),
+    directionDeg:pendingDirectionDeg!==undefined
+     ?(Number.isFinite(pendingDirectionDeg)?normalizeAngleDeg(pendingDirectionDeg):null)
+     :(Number.isFinite(existing.directionDeg)?normalizeAngleDeg(existing.directionDeg):null)
    };
   }else{
    hotspotDraft={
@@ -1064,14 +1113,10 @@ async function saveHotspot(){
     value,
     desc:desc.value,
     images:urls,
-    directionDeg:null
+    directionDeg:pendingDirectionDeg!==undefined
+     ?(Number.isFinite(pendingDirectionDeg)?normalizeAngleDeg(pendingDirectionDeg):null)
+     :null
    };
-  }
-
-  if(urls.length){
-   closeForm();
-   const chosenDirection=await promptDirectionSelection(hotspotDraft);
-   hotspotDraft.directionDeg=Number.isFinite(chosenDirection)?normalizeAngleDeg(chosenDirection):null;
   }
 
   if(editingId){
@@ -1083,6 +1128,7 @@ async function saveHotspot(){
   showLoading('Sauvegarde du point...');
   refresh();
   closeForm();
+  pendingDirectionDeg=undefined;
   await saveProject();
  }catch(_err){
   setSaveStatus('Erreur upload/sauvegarde du point',true);
@@ -1128,7 +1174,7 @@ function createHotspotElement(h){
   const directionEl=document.createElement('div');
   directionEl.className='hotspot-direction';
   directionEl.textContent='❯❯';
-  directionEl.style.transform=`translate(-50%,-50%) rotate(${normalizeAngleDeg(h.directionDeg)}deg)`;
+  directionEl.style.transform=`translate(-50%,-50%) rotate(${normalizeAngleDeg(h.directionDeg)-90}deg) translate(20px,0)`;
   el.appendChild(directionEl);
  }
 
