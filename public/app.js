@@ -140,12 +140,15 @@ function cancelLongPress(){
 
 function updateHotspotsAppearance(){
  const isZoomedOut=scale<HOTSPOT_ZOOM_THRESHOLD;
+ const inverseScale=1/scale;
  wrapper.querySelectorAll('.hotspot').forEach(el=>{
   if(isZoomedOut){
    el.classList.add('zoomed-out');
   } else {
    el.classList.remove('zoomed-out');
   }
+  // Apply inverse scale to keep hotspot size independent of zoom
+  el.style.transform=`translate(-50%,-50%) scale(${inverseScale})`;
  });
 }
 
@@ -910,9 +913,25 @@ function createHotspotElement(h){
  if(pointKind==='emoji'){
   el.classList.add('hotspot-emoji');
   el.textContent=h.value||'📍';
+  // Handle emoji hover with inverse scale compensation
+  el.addEventListener('mouseenter',()=>{
+   const inverseScale=1/scale;
+   el.style.transform=`translate(-50%,-50%) scale(${inverseScale*1.18})`;
+  });
+  el.addEventListener('mouseleave',()=>{
+   const inverseScale=1/scale;
+   el.style.transform=`translate(-50%,-50%) scale(${inverseScale})`;
+  });
  }else{
   el.classList.add('hotspot-color');
   el.style.background=h.value||h.color||'#FF0000';
+  // Handle color hover as a class toggle
+  el.addEventListener('mouseenter',()=>{
+   el.classList.add('hovered');
+  });
+  el.addEventListener('mouseleave',()=>{
+   el.classList.remove('hovered');
+  });
  }
  wrapper.appendChild(el);
 }
