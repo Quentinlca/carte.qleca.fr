@@ -211,6 +211,10 @@ function getCurrentFormPointStyle(){
  return {type,value};
 }
 
+function isDirectionPickerActive(){
+ return Boolean(directionPickerSession);
+}
+
 function snapshotFormState(){
  return {
   title:title.value,
@@ -334,6 +338,11 @@ function promptDirectionSelection(hotspotDraft){
    const center=getHotspotCenterClient(hotspotDraft);
    session.angleDeg=angleFromCenterToClient(center.x,center.y,e.clientX,e.clientY);
    updateDirectionPickerVisuals(session);
+  });
+
+  handleEl.addEventListener('click',e=>{
+   e.preventDefault();
+   e.stopPropagation();
   });
 
   skipBtn.addEventListener('click',e=>{
@@ -743,6 +752,7 @@ async function logout(){
 }
 
 container.addEventListener('wheel',e=>{
+ if(isDirectionPickerActive()) return;
  e.preventDefault();
  shouldRecenterOnResize=false;
  const rect=container.getBoundingClientRect();
@@ -753,6 +763,7 @@ container.addEventListener('wheel',e=>{
 });
 
 container.addEventListener('pointerdown',e=>{
+ if(isDirectionPickerActive()) return;
  if(e.pointerType==='mouse'){
   if(!e.isPrimary) return;
   if(e.button!==0) return;
@@ -998,6 +1009,8 @@ window.addEventListener('resize',()=>{
 });
 
 container.addEventListener('click',e=>{
+ if(isDirectionPickerActive()) return;
+ if(performance.now()<directionPickerClickGuardUntil) return;
  if(isMobileViewport()) return;
  if(moved) return;
  if(!canEditCurrentProject()) return;
