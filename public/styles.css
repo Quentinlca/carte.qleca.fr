@@ -24,6 +24,12 @@ body.booting #plan-container {
   border:2px solid #fff; cursor:pointer; transform:translate(-50%,-50%);
   transition:0.2s;
 }
+.hotspot.zoomed-out {
+  width:4px; height:4px; border:1px solid #555; background:#444;
+}
+.hotspot.zoomed-out.hotspot-emoji {
+  width:4px; height:4px; font-size:0;
+}
 .hotspot-color { width:10px; height:10px; border-radius:50%; border:2px solid #fff; }
 .hotspot-color:hover { width:18px; height:18px; }
 .hotspot-emoji {

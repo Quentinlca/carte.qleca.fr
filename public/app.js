@@ -91,6 +91,7 @@ let currentUsername='';
 
 let scale=1, originX=0, originY=0;
 let minScale=1;
+const HOTSPOT_ZOOM_THRESHOLD=0.5; // Below this scale, hotspots appear as small gray dots
 let isDragging=false, moved=false, startX,startY;
 let loadingRequests=0;
 let shouldRecenterOnResize=false;
@@ -135,6 +136,17 @@ function clearLongPressTimer(){
 function cancelLongPress(){
  clearLongPressTimer();
  longPressPointerId=null;
+}
+
+function updateHotspotsAppearance(){
+ const isZoomedOut=scale<HOTSPOT_ZOOM_THRESHOLD;
+ wrapper.querySelectorAll('.hotspot').forEach(el=>{
+  if(isZoomedOut){
+   el.classList.add('zoomed-out');
+  } else {
+   el.classList.remove('zoomed-out');
+  }
+ });
 }
 
 function containerPointFromClient(clientX,clientY){
@@ -256,6 +268,7 @@ function hideLoading(){
 
 function applyViewportTransform(){
  wrapper.style.transform=`translate(${originX}px,${originY}px) scale(${scale})`;
+ updateHotspotsAppearance();
 }
 
 function centerPlanInViewport(){
@@ -907,6 +920,7 @@ function createHotspotElement(h){
 function refresh(){
  wrapper.querySelectorAll('.hotspot').forEach(e=>e.remove());
  hotspots.forEach(createHotspotElement);
+ updateHotspotsAppearance();
 }
 
 async function resolveImageUrl(src){
