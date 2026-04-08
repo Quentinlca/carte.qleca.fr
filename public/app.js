@@ -91,7 +91,7 @@ let currentUsername='';
 
 let scale=1, originX=0, originY=0;
 let minScale=1;
-const HOTSPOT_ZOOM_THRESHOLD=0.7; // Below this scale, hotspots appear as small gray dots
+const HOTSPOT_ZOOM_THRESHOLD=0.25; // Below this scale, hotspots appear as small gray dots
 let isDragging=false, moved=false, startX,startY;
 let loadingRequests=0;
 let shouldRecenterOnResize=false;
